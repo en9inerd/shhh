@@ -1,6 +1,7 @@
 package memstore
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
@@ -18,15 +19,20 @@ type StoredItem struct {
 }
 
 type MemoryStore struct {
-	items  map[string]StoredItem
-	mu     sync.RWMutex
-	crypto *crypto.CryptoService
+	items   map[string]StoredItem
+	mu      sync.RWMutex
+	crypto  *crypto.CryptoService
+	stopCtx context.Context
+	cancel  context.CancelFunc
 }
 
 func NewMemoryStore() *MemoryStore {
+	ctx, cancel := context.WithCancel(context.Background())
 	store := &MemoryStore{
-		items:  make(map[string]StoredItem),
-		crypto: crypto.NewCryptoService(),
+		items:   make(map[string]StoredItem),
+		crypto:  crypto.NewCryptoService(),
+		stopCtx: ctx,
+		cancel:  cancel,
 	}
 	go store.cleaner()
 	return store
@@ -105,14 +111,23 @@ func (ms *MemoryStore) cleaner() {
 	ticker := time.NewTicker(1 * time.Minute)
 	defer ticker.Stop()
 
-	for range ticker.C {
-		now := time.Now()
-		ms.mu.Lock()
-		for id, item := range ms.items {
-			if now.After(item.ExpiresAt) {
-				delete(ms.items, id)
+	for {
+		select {
+		case <-ticker.C:
+			now := time.Now()
+			ms.mu.Lock()
+			for id, item := range ms.items {
+				if now.After(item.ExpiresAt) {
+					delete(ms.items, id)
+				}
 			}
+			ms.mu.Unlock()
+		case <-ms.stopCtx.Done():
+			return
 		}
-		ms.mu.Unlock()
 	}
+}
+
+func (ms *MemoryStore) Stop() {
+	ms.cancel()
 }
