@@ -1,20 +1,30 @@
 package main
 
 import (
+	"context"
+	"fmt"
 	"os"
 
 	"github.com/en9inerd/shhh/internal/config"
-	"github.com/en9inerd/shhh/internal/log"
 )
 
 const version = "dev"
 
-func main() {
-	cleanedArgs, verbose := cleanArgs(os.Args[1:])
+func run(ctx context.Context, args []string, getenv func(string) string) error {
+	return nil
+}
 
-	logger := log.NewLogger(verbose)
-	logger.Debug("Starting command", "args", cleanedArgs)
-	cfg := config.LoadConfig(logger)
+func main() {
+	// cleanedArgs, verbose := cleanArgs(os.Args[1:])
+	//
+	// logger := log.NewLogger(verbose)
+	cfg, err := config.ParseConfig(os.Args, os.Getenv)
+	if err != nil {
+		fmt.Errorf("")
+	}
+
+	fmt.Println(cfg)
+
 }
 
 func cleanArgs(args []string) (cleanArgs []string, verbose bool) {
