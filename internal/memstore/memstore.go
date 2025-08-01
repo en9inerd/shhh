@@ -15,7 +15,7 @@ type StoredItem struct {
 	Data      []byte
 	CreatedAt time.Time
 	ExpiresAt time.Time
-	IsFile    bool
+	Filename  string // optional
 }
 
 type MemoryStore struct {
@@ -26,7 +26,7 @@ type MemoryStore struct {
 	cancel  context.CancelFunc
 }
 
-func NewMemoryStore() *MemoryStore {
+func NewMemoryStore(cleanupDuration time.Duration) *MemoryStore {
 	ctx, cancel := context.WithCancel(context.Background())
 	store := &MemoryStore{
 		items:   make(map[string]StoredItem),
@@ -34,7 +34,7 @@ func NewMemoryStore() *MemoryStore {
 		stopCtx: ctx,
 		cancel:  cancel,
 	}
-	go store.cleaner()
+	go store.cleaner(cleanupDuration)
 	return store
 }
 
@@ -107,8 +107,8 @@ func (ms *MemoryStore) Retrieve(id, passphrase string) ([]byte, error) {
 	return decrypted, nil
 }
 
-func (ms *MemoryStore) cleaner() {
-	ticker := time.NewTicker(1 * time.Minute)
+func (ms *MemoryStore) cleaner(duration time.Duration) {
+	ticker := time.NewTicker(duration)
 	defer ticker.Stop()
 
 	for {
