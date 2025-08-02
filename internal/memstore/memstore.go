@@ -19,22 +19,26 @@ type StoredItem struct {
 }
 
 type MemoryStore struct {
-	items   map[string]StoredItem
-	mu      sync.RWMutex
-	crypto  *crypto.CryptoService
-	stopCtx context.Context
-	cancel  context.CancelFunc
+	items       map[string]StoredItem
+	mu          sync.RWMutex
+	crypto      *crypto.CryptoService
+	stopCtx     context.Context
+	cancel      context.CancelFunc
+	maxItems    int
+	maxFileSize int64
 }
 
-func NewMemoryStore(cleanupDuration time.Duration) *MemoryStore {
+func NewMemoryStore(retention time.Duration, maxItems int, maxFileSize int64) *MemoryStore {
 	ctx, cancel := context.WithCancel(context.Background())
 	store := &MemoryStore{
-		items:   make(map[string]StoredItem),
-		crypto:  crypto.NewCryptoService(),
-		stopCtx: ctx,
-		cancel:  cancel,
+		items:       make(map[string]StoredItem),
+		crypto:      crypto.NewCryptoService(),
+		stopCtx:     ctx,
+		cancel:      cancel,
+		maxItems:    maxItems,
+		maxFileSize: maxFileSize,
 	}
-	go store.cleaner(cleanupDuration)
+	go store.cleaner(retention)
 	return store
 }
 
@@ -52,6 +56,18 @@ func (ms *MemoryStore) Store(data []byte, filename string, passphrase string, tt
 	if ttl <= 0 {
 		return "", errors.New("TTL must be positive")
 	}
+
+	if int64(len(data)) > ms.maxFileSize {
+		return "", errors.New("file size exceeds maximum allowed")
+	}
+
+	ms.mu.Lock()
+	if len(ms.items) >= ms.maxItems {
+		ms.mu.Unlock()
+		return "", errors.New("memory store is full")
+	}
+	ms.mu.Unlock()
+
 	now := time.Now()
 	maxTTL := 24 * time.Hour
 	if ttl > maxTTL {
@@ -107,8 +123,8 @@ func (ms *MemoryStore) Retrieve(id, passphrase string) ([]byte, string, error) {
 	return decrypted, item.Filename, nil
 }
 
-func (ms *MemoryStore) cleaner(duration time.Duration) {
-	ticker := time.NewTicker(duration)
+func (ms *MemoryStore) cleaner(retention time.Duration) {
+	ticker := time.NewTicker(retention)
 	defer ticker.Stop()
 
 	for {
