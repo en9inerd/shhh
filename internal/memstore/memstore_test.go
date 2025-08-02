@@ -8,20 +8,19 @@ import (
 const testPassphrase = "secret123"
 const cleanupDuration = time.Minute * 5
 
-func TestStoreAndRetrieve_Success(t *testing.T) {
+func TestStoreAndRetrieve_Text(t *testing.T) {
 	store := NewMemoryStore(cleanupDuration)
 	defer store.Stop()
 
 	data := []byte("Hello, world!")
-	isFile := false
 	ttl := 2 * time.Second
 
-	id, err := store.Store(data, testPassphrase, isFile, ttl)
+	id, err := store.Store(data, "", testPassphrase, ttl)
 	if err != nil {
 		t.Fatalf("Store failed: %v", err)
 	}
 
-	retrieved, err := store.Retrieve(id, testPassphrase)
+	retrieved, filename, err := store.Retrieve(id, testPassphrase)
 	if err != nil {
 		t.Fatalf("Retrieve failed: %v", err)
 	}
@@ -29,13 +28,44 @@ func TestStoreAndRetrieve_Success(t *testing.T) {
 	if string(retrieved) != string(data) {
 		t.Errorf("Expected %s, got %s", string(data), string(retrieved))
 	}
+
+	if filename != "" {
+		t.Errorf("Expected empty filename for text, got %s", filename)
+	}
+}
+
+func TestStoreAndRetrieve_File(t *testing.T) {
+	store := NewMemoryStore(cleanupDuration)
+	defer store.Stop()
+
+	data := []byte{0x1f, 0x8b, 0x08} // mock gzip header
+	filename := "archive.tar.gz"
+	ttl := 2 * time.Second
+
+	id, err := store.Store(data, filename, testPassphrase, ttl)
+	if err != nil {
+		t.Fatalf("Store failed: %v", err)
+	}
+
+	retrieved, gotFilename, err := store.Retrieve(id, testPassphrase)
+	if err != nil {
+		t.Fatalf("Retrieve failed: %v", err)
+	}
+
+	if string(retrieved) != string(data) {
+		t.Errorf("Expected %v, got %v", data, retrieved)
+	}
+
+	if gotFilename != filename {
+		t.Errorf("Expected filename %s, got %s", filename, gotFilename)
+	}
 }
 
 func TestStore_InvalidTTL(t *testing.T) {
 	store := NewMemoryStore(cleanupDuration)
 	defer store.Stop()
 
-	_, err := store.Store([]byte("test"), testPassphrase, false, 0)
+	_, err := store.Store([]byte("test"), "", testPassphrase, 0)
 	if err == nil || err.Error() != "TTL must be positive" {
 		t.Errorf("Expected TTL error, got %v", err)
 	}
@@ -45,15 +75,14 @@ func TestRetrieve_Expired(t *testing.T) {
 	store := NewMemoryStore(cleanupDuration)
 	defer store.Stop()
 
-	// Set TTL to 1ms
-	id, err := store.Store([]byte("temp data"), testPassphrase, false, 1*time.Millisecond)
+	id, err := store.Store([]byte("temp data"), "", testPassphrase, 1*time.Millisecond)
 	if err != nil {
 		t.Fatalf("Store failed: %v", err)
 	}
 
-	time.Sleep(10 * time.Millisecond) // Wait for it to expire
+	time.Sleep(10 * time.Millisecond)
 
-	_, err = store.Retrieve(id, testPassphrase)
+	_, _, err = store.Retrieve(id, testPassphrase)
 	if err == nil || err.Error() != "item expired" {
 		t.Errorf("Expected expiration error, got %v", err)
 	}
@@ -63,7 +92,7 @@ func TestRetrieve_NotFound(t *testing.T) {
 	store := NewMemoryStore(cleanupDuration)
 	defer store.Stop()
 
-	_, err := store.Retrieve("nonexistent-id", testPassphrase)
+	_, _, err := store.Retrieve("nonexistent-id", testPassphrase)
 	if err == nil || err.Error() != "item not found" {
 		t.Errorf("Expected not found error, got %v", err)
 	}
@@ -74,12 +103,12 @@ func TestRetrieve_WrongPassphrase(t *testing.T) {
 	defer store.Stop()
 
 	data := []byte("secret data")
-	id, err := store.Store(data, testPassphrase, false, 1*time.Second)
+	id, err := store.Store(data, "", testPassphrase, 1*time.Second)
 	if err != nil {
 		t.Fatalf("Store failed: %v", err)
 	}
 
-	_, err = store.Retrieve(id, "wrongpass")
+	_, _, err = store.Retrieve(id, "wrongpass")
 	if err == nil || err.Error() != "decryption failed" {
 		t.Errorf("Expected decryption error, got %v", err)
 	}
@@ -89,7 +118,7 @@ func TestCleaner_RemovesExpired(t *testing.T) {
 	store := NewMemoryStore(1 * time.Second)
 	defer store.Stop()
 
-	id, err := store.Store([]byte("clean me"), testPassphrase, false, 1*time.Millisecond)
+	id, err := store.Store([]byte("clean me"), "", testPassphrase, 1*time.Millisecond)
 	if err != nil {
 		t.Fatalf("Store failed: %v", err)
 	}

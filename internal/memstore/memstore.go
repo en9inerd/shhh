@@ -48,7 +48,7 @@ func generateUUID() (string, error) {
 	return hex.EncodeToString(b), nil
 }
 
-func (ms *MemoryStore) Store(data []byte, passphrase string, isFile bool, ttl time.Duration) (string, error) {
+func (ms *MemoryStore) Store(data []byte, filename string, passphrase string, ttl time.Duration) (string, error) {
 	if ttl <= 0 {
 		return "", errors.New("TTL must be positive")
 	}
@@ -73,38 +73,38 @@ func (ms *MemoryStore) Store(data []byte, passphrase string, isFile bool, ttl ti
 	ms.mu.Lock()
 	ms.items[id] = StoredItem{
 		Data:      enc,
+		Filename:  filename,
 		CreatedAt: now,
 		ExpiresAt: expiresAt,
-		IsFile:    isFile,
 	}
 	ms.mu.Unlock()
 
 	return id, nil
 }
 
-func (ms *MemoryStore) Retrieve(id, passphrase string) ([]byte, error) {
+func (ms *MemoryStore) Retrieve(id, passphrase string) ([]byte, string, error) {
 	ms.mu.Lock()
 	item, ok := ms.items[id]
 	if !ok {
 		ms.mu.Unlock()
-		return nil, errors.New("item not found")
+		return nil, "", errors.New("item not found")
 	}
 
 	if time.Now().After(item.ExpiresAt) {
 		delete(ms.items, id)
 		ms.mu.Unlock()
-		return nil, errors.New("item expired")
+		return nil, "", errors.New("item expired")
 	}
 
 	decrypted, err := ms.crypto.Decrypt(item.Data, passphrase)
 	if err != nil {
 		ms.mu.Unlock()
-		return nil, errors.New("decryption failed")
+		return nil, "", errors.New("decryption failed")
 	}
 
 	delete(ms.items, id)
 	ms.mu.Unlock()
-	return decrypted, nil
+	return decrypted, item.Filename, nil
 }
 
 func (ms *MemoryStore) cleaner(duration time.Duration) {
