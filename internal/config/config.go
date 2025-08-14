@@ -2,7 +2,6 @@ package config
 
 import (
 	"flag"
-	"os"
 	"strconv"
 	"time"
 )
@@ -14,7 +13,41 @@ type Config struct {
 	MaxRetention time.Duration
 }
 
-func ParseConfig(args []string) (*Config, error) {
+func ParseConfig(args []string, getenv func(string) string) (*Config, error) {
+	getEnv := func(key, fallback string) string {
+		if v := getenv(key); v != "" {
+			return v
+		}
+		return fallback
+	}
+
+	getEnvInt := func(key string, fallback int) int {
+		if v := getenv(key); v != "" {
+			if i, err := strconv.Atoi(v); err == nil {
+				return i
+			}
+		}
+		return fallback
+	}
+
+	getEnvInt64 := func(key string, fallback int64) int64 {
+		if v := getenv(key); v != "" {
+			if i, err := strconv.ParseInt(v, 10, 64); err == nil {
+				return i
+			}
+		}
+		return fallback
+	}
+
+	getEnvDuration := func(key string, fallback time.Duration) time.Duration {
+		if v := getenv(key); v != "" {
+			if d, err := time.ParseDuration(v); err == nil {
+				return d
+			}
+		}
+		return fallback
+	}
+
 	fs := flag.NewFlagSet("shhh", flag.ContinueOnError)
 
 	port := fs.String("port", getEnv("SHHH_PORT", "8000"), "Port to listen on")
@@ -32,40 +65,4 @@ func ParseConfig(args []string) (*Config, error) {
 		MaxFileSize:  *maxFileSize,
 		MaxRetention: *maxRetention,
 	}, nil
-}
-
-// --- Helpers ---
-
-func getEnv(key, fallback string) string {
-	if v := os.Getenv(key); v != "" {
-		return v
-	}
-	return fallback
-}
-
-func getEnvInt(key string, fallback int) int {
-	if v := os.Getenv(key); v != "" {
-		if i, err := strconv.Atoi(v); err == nil {
-			return i
-		}
-	}
-	return fallback
-}
-
-func getEnvInt64(key string, fallback int64) int64 {
-	if v := os.Getenv(key); v != "" {
-		if i, err := strconv.ParseInt(v, 10, 64); err == nil {
-			return i
-		}
-	}
-	return fallback
-}
-
-func getEnvDuration(key string, fallback time.Duration) time.Duration {
-	if v := os.Getenv(key); v != "" {
-		if d, err := time.ParseDuration(v); err == nil {
-			return d
-		}
-	}
-	return fallback
 }

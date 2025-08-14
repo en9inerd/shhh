@@ -8,16 +8,11 @@ import (
 	"github.com/en9inerd/shhh/internal/memstore"
 )
 
-func NewServer(
+func registerRoutes(
+	mux *http.ServeMux,
 	logger *slog.Logger,
 	config *config.Config,
-	memStore *memstore.MemoryStore,
-) http.Handler {
-	mux := http.NewServeMux()
+	memStore *memstore.MemoryStore) {
 
-	registerRoutes(mux, logger, config, memStore)
-
-	var handler http.Handler = mux
-
-	return handler
+	mux.Handle("/healthz", healthHandler())
 }

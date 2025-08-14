@@ -5,11 +5,19 @@ import (
 	"time"
 )
 
-const testPassphrase = "secret123"
-const cleanupDuration = time.Minute * 5
+const (
+	testPassphrase        = "secret123"
+	cleanupDuration       = time.Second
+	maxItems              = 10
+	maxFileSize     int64 = 1024 // 1KB
+)
+
+func newTestStore() *MemoryStore {
+	return NewMemoryStore(cleanupDuration, maxItems, maxFileSize)
+}
 
 func TestStoreAndRetrieve_Text(t *testing.T) {
-	store := NewMemoryStore(cleanupDuration)
+	store := newTestStore()
 	defer store.Stop()
 
 	data := []byte("Hello, world!")
@@ -35,10 +43,10 @@ func TestStoreAndRetrieve_Text(t *testing.T) {
 }
 
 func TestStoreAndRetrieve_File(t *testing.T) {
-	store := NewMemoryStore(cleanupDuration)
+	store := newTestStore()
 	defer store.Stop()
 
-	data := []byte{0x1f, 0x8b, 0x08} // mock gzip header
+	data := []byte{0x1f, 0x8b, 0x08}
 	filename := "archive.tar.gz"
 	ttl := 2 * time.Second
 
@@ -62,7 +70,7 @@ func TestStoreAndRetrieve_File(t *testing.T) {
 }
 
 func TestStore_InvalidTTL(t *testing.T) {
-	store := NewMemoryStore(cleanupDuration)
+	store := newTestStore()
 	defer store.Stop()
 
 	_, err := store.Store([]byte("test"), "", testPassphrase, 0)
@@ -71,8 +79,33 @@ func TestStore_InvalidTTL(t *testing.T) {
 	}
 }
 
+func TestStore_ExceedsFileSize(t *testing.T) {
+	store := NewMemoryStore(cleanupDuration, maxItems, 5) // 5 bytes max
+	defer store.Stop()
+
+	_, err := store.Store([]byte("123456"), "", testPassphrase, 1*time.Second)
+	if err == nil || err.Error() != "file size exceeds maximum allowed" {
+		t.Errorf("Expected file size error, got %v", err)
+	}
+}
+
+func TestStore_ExceedsMaxItems(t *testing.T) {
+	store := NewMemoryStore(cleanupDuration, 1, maxFileSize) // allow only 1 item
+	defer store.Stop()
+
+	_, err := store.Store([]byte("one"), "", testPassphrase, 1*time.Second)
+	if err != nil {
+		t.Fatalf("Unexpected error on first store: %v", err)
+	}
+
+	_, err = store.Store([]byte("two"), "", testPassphrase, 1*time.Second)
+	if err == nil || err.Error() != "memory store is full" {
+		t.Errorf("Expected memory full error, got %v", err)
+	}
+}
+
 func TestRetrieve_Expired(t *testing.T) {
-	store := NewMemoryStore(cleanupDuration)
+	store := newTestStore()
 	defer store.Stop()
 
 	id, err := store.Store([]byte("temp data"), "", testPassphrase, 1*time.Millisecond)
@@ -89,7 +122,7 @@ func TestRetrieve_Expired(t *testing.T) {
 }
 
 func TestRetrieve_NotFound(t *testing.T) {
-	store := NewMemoryStore(cleanupDuration)
+	store := newTestStore()
 	defer store.Stop()
 
 	_, _, err := store.Retrieve("nonexistent-id", testPassphrase)
@@ -99,7 +132,7 @@ func TestRetrieve_NotFound(t *testing.T) {
 }
 
 func TestRetrieve_WrongPassphrase(t *testing.T) {
-	store := NewMemoryStore(cleanupDuration)
+	store := newTestStore()
 	defer store.Stop()
 
 	data := []byte("secret data")
@@ -115,7 +148,7 @@ func TestRetrieve_WrongPassphrase(t *testing.T) {
 }
 
 func TestCleaner_RemovesExpired(t *testing.T) {
-	store := NewMemoryStore(1 * time.Second)
+	store := NewMemoryStore(1*time.Second, maxItems, maxFileSize)
 	defer store.Stop()
 
 	id, err := store.Store([]byte("clean me"), "", testPassphrase, 1*time.Millisecond)
