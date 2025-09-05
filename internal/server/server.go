@@ -19,5 +19,7 @@ func NewServer(
 
 	var handler http.Handler = mux
 
+	// Middlewares
+
 	return handler
 }

@@ -12,7 +12,9 @@ func registerRoutes(
 	mux *http.ServeMux,
 	logger *slog.Logger,
 	config *config.Config,
-	memStore *memstore.MemoryStore) {
-
-	mux.Handle("/healthz", healthHandler())
+	memStore *memstore.MemoryStore,
+) {
+	mux.Handle("POST /api/secret", http.HandlerFunc())
+	mux.Handle("GET /api/{id}/{passphrase}", http.HandlerFunc())
+	mux.Handle("GET /api/params", http.HandlerFunc())
 }
