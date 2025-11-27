@@ -33,8 +33,11 @@ func Logger(l *slog.Logger) func(http.Handler) http.Handler {
 
 			duration := time.Since(start)
 
-			// mask sensitive paths
-			path := maskSensitivePath(r.URL)
+			// Only mask sensitive paths for secret routes
+			path := r.URL.Path
+			if strings.Contains(r.URL.Path, "/secret/") {
+				path = maskSensitivePath(r.URL)
+			}
 
 			// get remote IP
 			remoteIP := "-"
@@ -56,23 +59,24 @@ func Logger(l *slog.Logger) func(http.Handler) http.Handler {
 	}
 }
 
-// maskSensitivePath hides pins/keys in /message/{key}/{pin} paths
+// maskSensitivePath hides passphrases in /secret/{id}/{passphrase} paths
 func maskSensitivePath(u *url.URL) string {
 	path := u.String()
 	if qun, err := url.QueryUnescape(path); err == nil {
 		path = qun
 	}
 
-	if strings.Contains(path, "/message/") {
+	// Mask /api/secret/{id}/{passphrase} paths
+	if strings.Contains(path, "/secret/") {
 		elems := strings.Split(path, "/")
 		for i, elem := range elems {
-			if elem == "message" && i+2 < len(elems) {
-				// show partial key, hide pin
-				key := elems[i+1]
-				if len(key) > 17 {
-					key = key[:17]
+			if elem == "secret" && i+2 < len(elems) {
+				// show partial id, hide passphrase
+				id := elems[i+1]
+				if len(id) > 8 {
+					id = id[:8] + "..."
 				}
-				path = strings.Join(elems[:i+1], "/") + "/" + key + "/*****"
+				path = strings.Join(elems[:i+1], "/") + "/" + id + "/*****"
 				break
 			}
 		}

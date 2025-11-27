@@ -144,12 +144,13 @@ func (ms *MemoryStore) cleaner(retention time.Duration) {
 		case <-ticker.C:
 			now := time.Now()
 			var expired []string
+			ms.mu.RLock()
 			for id, item := range ms.items {
 				if now.After(item.ExpiresAt) {
 					expired = append(expired, id)
 				}
 			}
-			ms.mu.Unlock()
+			ms.mu.RUnlock()
 
 			if len(expired) > 0 {
 				ms.mu.Lock()

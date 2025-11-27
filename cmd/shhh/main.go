@@ -3,33 +3,91 @@ package main
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"os"
+	"os/signal"
+	"sync"
+	"syscall"
+	"time"
 
 	"github.com/en9inerd/shhh/internal/config"
+	"github.com/en9inerd/shhh/internal/log"
+	"github.com/en9inerd/shhh/internal/memstore"
+	"github.com/en9inerd/shhh/internal/server"
 )
 
 const version = "dev"
 
 func run(ctx context.Context, args []string, getenv func(string) string) error {
+	// Use signal.NotifyContext for cancellation (Grafana blog pattern)
+	ctx, cancel := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
+	defer cancel()
+
+	cfg, err := config.ParseConfig(args, getenv)
+	if err != nil {
+		return fmt.Errorf("failed to parse config: %w", err)
+	}
+
+	cleanedArgs, verbose := cleanArgs(args)
+	_ = cleanedArgs // may be used later
+
+	logger := log.NewLogger(verbose)
+	logger.Info("starting server", "version", version, "port", cfg.Port)
+
+	memStore := memstore.NewMemoryStore(cfg.MaxRetention, cfg.MaxItems, cfg.MaxFileSize)
+	defer memStore.Stop()
+
+	handler := server.NewServer(logger, cfg, memStore)
+
+	httpServer := &http.Server{
+		Addr:         ":" + cfg.Port,
+		Handler:      handler,
+		ReadTimeout:  15 * time.Second,
+		WriteTimeout: 15 * time.Second,
+		IdleTimeout:  60 * time.Second,
+	}
+
+	// Start server in goroutine
+	go func() {
+		logger.Info("listening", "addr", httpServer.Addr)
+		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			fmt.Fprintf(os.Stderr, "error listening and serving: %s\n", err)
+		}
+	}()
+
+	// Wait for context cancellation (signal) - Grafana blog pattern
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		<-ctx.Done()
+		logger.Info("shutdown signal received")
+
+		shutdownCtx := context.Background()
+		shutdownCtx, cancel := context.WithTimeout(shutdownCtx, 10*time.Second)
+		defer cancel()
+
+		if err := httpServer.Shutdown(shutdownCtx); err != nil {
+			fmt.Fprintf(os.Stderr, "error shutting down http server: %s\n", err)
+		}
+		logger.Info("server stopped")
+	}()
+	wg.Wait()
+
 	return nil
 }
 
 func main() {
-	// cleanedArgs, verbose := cleanArgs(os.Args[1:])
-
-	// logger := log.NewLogger(verbose)
-	cfg, err := config.ParseConfig(os.Args, os.Getenv)
-	if err != nil {
-		fmt.Errorf("")
+	ctx := context.Background()
+	if err := run(ctx, os.Args, os.Getenv); err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(1)
 	}
-
-	fmt.Println(cfg)
-
 }
 
 func cleanArgs(args []string) (cleanArgs []string, verbose bool) {
 	for _, arg := range args {
-		if arg == "--verbose" {
+		if arg == "--verbose" || arg == "-v" {
 			verbose = true
 		} else {
 			cleanArgs = append(cleanArgs, arg)

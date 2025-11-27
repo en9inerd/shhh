@@ -29,14 +29,8 @@ func NewServer(
 	)
 
 	r.Mount("/api").Route(func(g *router.Group) {
-		handleGroup(g, logger, cfg, memStore)
+		registerRoutes(g, logger, cfg, memStore)
 	})
 
-	// registerRoutes(mux, logger, cfg, memStore)
-
-	// var handler http.Handler = mux
-
-	// Middlewares
-
-	return handler
+	return r
 }
