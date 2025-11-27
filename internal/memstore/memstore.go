@@ -19,24 +19,24 @@ type StoredItem struct {
 }
 
 type MemoryStore struct {
-	items       map[string]StoredItem
+	items       map[string]*StoredItem
 	mu          sync.RWMutex
 	crypto      *crypto.CryptoService
 	stopCtx     context.Context
 	cancel      context.CancelFunc
 	maxItems    int
-	maxFileSize int64
+	maxDataSize int64
 }
 
-func NewMemoryStore(retention time.Duration, maxItems int, maxFileSize int64) *MemoryStore {
+func NewMemoryStore(retention time.Duration, maxItems int, maxDataSize int64) *MemoryStore {
 	ctx, cancel := context.WithCancel(context.Background())
 	store := &MemoryStore{
-		items:       make(map[string]StoredItem),
+		items:       make(map[string]*StoredItem),
 		crypto:      crypto.NewCryptoService(),
 		stopCtx:     ctx,
 		cancel:      cancel,
 		maxItems:    maxItems,
-		maxFileSize: maxFileSize,
+		maxDataSize: maxDataSize,
 	}
 	go store.cleaner(retention)
 	return store
@@ -52,75 +52,87 @@ func generateUUID() (string, error) {
 	return hex.EncodeToString(b), nil
 }
 
-func (ms *MemoryStore) Store(data []byte, filename string, passphrase string, ttl time.Duration) (string, error) {
+func (ms *MemoryStore) Store(data []byte, filename string, passphrase string, ttl time.Duration) (string, *StoredItem, error) {
 	if ttl <= 0 {
-		return "", errors.New("TTL must be positive")
+		return "", nil, errors.New("TTL must be positive")
 	}
 
-	if int64(len(data)) > ms.maxFileSize {
-		return "", errors.New("file size exceeds maximum allowed")
+	if int64(len(data)) > ms.maxDataSize {
+		return "", nil, errors.New("data size exceeds maximum allowed")
 	}
 
-	ms.mu.Lock()
+	ms.mu.RLock()
 	if len(ms.items) >= ms.maxItems {
-		ms.mu.Unlock()
-		return "", errors.New("memory store is full")
+		ms.mu.RUnlock()
+		return "", nil, errors.New("memory store is full")
 	}
-	ms.mu.Unlock()
+	ms.mu.RUnlock()
 
 	now := time.Now()
 	maxTTL := 24 * time.Hour
 	if ttl > maxTTL {
 		ttl = maxTTL
 	}
-
 	expiresAt := now.Add(ttl)
 
 	enc, err := ms.crypto.Encrypt(data, passphrase)
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 
 	id, err := generateUUID()
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 
-	ms.mu.Lock()
-	ms.items[id] = StoredItem{
+	item := &StoredItem{
 		Data:      enc,
 		Filename:  filename,
 		CreatedAt: now,
 		ExpiresAt: expiresAt,
 	}
+
+	ms.mu.Lock()
+	if len(ms.items) >= ms.maxItems {
+		ms.mu.Unlock()
+		return "", nil, errors.New("memory store is full")
+	}
+	ms.items[id] = item
 	ms.mu.Unlock()
 
-	return id, nil
+	return id, item, nil
 }
 
 func (ms *MemoryStore) Retrieve(id, passphrase string) ([]byte, string, error) {
-	ms.mu.Lock()
+	ms.mu.RLock()
 	item, ok := ms.items[id]
 	if !ok {
-		ms.mu.Unlock()
+		ms.mu.RUnlock()
 		return nil, "", errors.New("item not found")
 	}
 
 	if time.Now().After(item.ExpiresAt) {
+		ms.mu.RUnlock()
+		ms.mu.Lock()
 		delete(ms.items, id)
 		ms.mu.Unlock()
 		return nil, "", errors.New("item expired")
 	}
 
-	decrypted, err := ms.crypto.Decrypt(item.Data, passphrase)
+	enc := item.Data
+	filename := item.Filename
+	ms.mu.RUnlock()
+
+	decrypted, err := ms.crypto.Decrypt(enc, passphrase)
 	if err != nil {
-		ms.mu.Unlock()
 		return nil, "", errors.New("decryption failed")
 	}
 
+	ms.mu.Lock()
 	delete(ms.items, id)
 	ms.mu.Unlock()
-	return decrypted, item.Filename, nil
+
+	return decrypted, filename, nil
 }
 
 func (ms *MemoryStore) cleaner(retention time.Duration) {
@@ -131,13 +143,21 @@ func (ms *MemoryStore) cleaner(retention time.Duration) {
 		select {
 		case <-ticker.C:
 			now := time.Now()
-			ms.mu.Lock()
+			var expired []string
 			for id, item := range ms.items {
 				if now.After(item.ExpiresAt) {
-					delete(ms.items, id)
+					expired = append(expired, id)
 				}
 			}
 			ms.mu.Unlock()
+
+			if len(expired) > 0 {
+				ms.mu.Lock()
+				for _, id := range expired {
+					delete(ms.items, id)
+				}
+				ms.mu.Unlock()
+			}
 		case <-ms.stopCtx.Done():
 			return
 		}

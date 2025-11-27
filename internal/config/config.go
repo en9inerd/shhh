@@ -7,10 +7,11 @@ import (
 )
 
 type Config struct {
-	Port         string
-	MaxItems     int
-	MaxFileSize  int64
-	MaxRetention time.Duration
+	Port          string
+	MaxPhraseSize int
+	MaxItems      int
+	MaxFileSize   int64
+	MaxRetention  time.Duration
 }
 
 func ParseConfig(args []string, getenv func(string) string) (*Config, error) {
@@ -51,6 +52,7 @@ func ParseConfig(args []string, getenv func(string) string) (*Config, error) {
 	fs := flag.NewFlagSet("shhh", flag.ContinueOnError)
 
 	port := fs.String("port", getEnv("SHHH_PORT", "8000"), "Port to listen on")
+	maxPhraseSize := fs.Int("max-phrase-size", getEnvInt("SHHH_MAX_PHRASE_SIZE", 16), "Max passphrase size")
 	maxItems := fs.Int("max-items", getEnvInt("SHHH_MAX_ITEMS", 100), "Max number of items in memory")
 	maxFileSize := fs.Int64("max-file-size", getEnvInt64("SHHH_MAX_FILE_SIZE", 2*1024*1024), "Max file size in bytes")
 	maxRetention := fs.Duration("max-retention", getEnvDuration("SHHH_MAX_RETENTION", 24*time.Hour), "Max retention time")
@@ -60,9 +62,10 @@ func ParseConfig(args []string, getenv func(string) string) (*Config, error) {
 	}
 
 	return &Config{
-		Port:         *port,
-		MaxItems:     *maxItems,
-		MaxFileSize:  *maxFileSize,
-		MaxRetention: *maxRetention,
+		Port:          *port,
+		MaxPhraseSize: *maxPhraseSize,
+		MaxItems:      *maxItems,
+		MaxFileSize:   *maxFileSize,
+		MaxRetention:  *maxRetention,
 	}, nil
 }

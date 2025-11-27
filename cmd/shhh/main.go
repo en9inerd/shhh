@@ -6,7 +6,6 @@ import (
 	"os"
 
 	"github.com/en9inerd/shhh/internal/config"
-	"github.com/en9inerd/shhh/internal/log"
 )
 
 const version = "dev"
@@ -16,9 +15,9 @@ func run(ctx context.Context, args []string, getenv func(string) string) error {
 }
 
 func main() {
-	cleanedArgs, verbose := cleanArgs(os.Args[1:])
+	// cleanedArgs, verbose := cleanArgs(os.Args[1:])
 
-	logger := log.NewLogger(verbose)
+	// logger := log.NewLogger(verbose)
 	cfg, err := config.ParseConfig(os.Args, os.Getenv)
 	if err != nil {
 		fmt.Errorf("")

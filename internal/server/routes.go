@@ -14,7 +14,7 @@ func registerRoutes(
 	config *config.Config,
 	memStore *memstore.MemoryStore,
 ) {
-	mux.Handle("POST /api/secret", http.HandlerFunc())
-	mux.Handle("GET /api/{id}/{passphrase}", http.HandlerFunc())
-	mux.Handle("GET /api/params", http.HandlerFunc())
+	// mux.Handle("POST /api/secret", http.HandlerFunc())
+	// mux.Handle("GET /api/{id}/{passphrase}", http.HandlerFunc())
+	// mux.Handle("GET /api/params", http.HandlerFunc())
 }

@@ -7,7 +7,7 @@ BINARY_PATH=$(DIST_DIR)/$(BINARY_NAME)
 all: build
 
 build:
-	$(GO) build -o $(BINARY_PATH) ./cmd/app/
+	$(GO) build -o $(BINARY_PATH) ./cmd/shhh/
 
 build-prod:
 	bash scripts/build.sh
@@ -15,4 +15,7 @@ build-prod:
 clean:
 	rm -rf $(DIST_DIR)
 
-.PHONY: all build clean
+update-htmx:
+	./scripts/update-htmx.sh
+
+.PHONY: all build clean update-htmx
