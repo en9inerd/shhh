@@ -29,7 +29,7 @@ func NewServer(
 ) http.Handler {
 	r := router.New(http.NewServeMux())
 
-	// global middleware
+	maxRequestSize := cfg.MaxFileSize + 10240
 	r.Use(
 		SecurityHeaders,
 		middleware.RealIP,
@@ -37,7 +37,7 @@ func NewServer(
 		middleware.GlobalThrottle(1000),
 		middleware.Timeout(60*time.Second),
 		middleware.Health,
-		middleware.SizeLimit(64*1024),
+		middleware.SizeLimit(maxRequestSize),
 	)
 
 	r.Mount("/api").Route(func(g *router.Group) {

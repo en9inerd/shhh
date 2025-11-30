@@ -16,6 +16,7 @@ func registerRoutes(
 ) {
 	apiGroup.Use(Logger(logger))
 	apiGroup.HandleFunc("POST /secret", saveSecret(logger, cfg, memStore))
+	apiGroup.HandleFunc("POST /file", uploadFile(logger, cfg, memStore))
 	apiGroup.HandleFunc("GET /secret/{id}/{passphrase}", retrieveSecret(logger, memStore))
 	apiGroup.HandleFunc("GET /params", getParams(logger, cfg))
 }
