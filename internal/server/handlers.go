@@ -19,10 +19,12 @@ type saveSecretRequest struct {
 	validator.Validator
 }
 
-func (r *saveSecretRequest) Validate(v *validator.Validator) {
+func (r *saveSecretRequest) Validate(v *validator.Validator, cfg *config.Config) {
 	v.CheckField(validator.NotBlank(r.Secret), "secret", "secret is required")
+	v.CheckField(validator.MaxChars(r.Secret, int(cfg.MaxFileSize)), "secret", "secret exceeds maximum size")
 	v.CheckField(validator.NotBlank(r.PassPhrase), "passphrase", "passphrase is required")
 	v.CheckField(validator.MinChars(r.PassPhrase, 1), "passphrase", "passphrase cannot be empty")
+	v.CheckField(validator.MaxChars(r.PassPhrase, cfg.MaxPhraseSize), "passphrase", "passphrase exceeds maximum size")
 	v.CheckField(validator.MinInt(r.Exp, 1), "exp", "expiration must be at least 1 second")
 }
 
@@ -31,12 +33,12 @@ func saveSecret(l *slog.Logger, cfg *config.Config, memStore *memstore.MemorySto
 		var req saveSecretRequest
 
 		if err := httpjson.DecodeJSON(r, &req); err != nil {
-			l.Warn("can't bind request %v", req)
+			l.Warn("can't bind request", "error", err)
 			httpjson.SendErrorJSON(w, r, l, http.StatusBadRequest, err, "can't decode request")
 			return
 		}
 
-		req.Validate(&req.Validator)
+		req.Validate(&req.Validator, cfg)
 		if !req.Valid() {
 			l.Warn("validation failed", "errors", req.FieldErrors)
 			w.WriteHeader(http.StatusBadRequest)
@@ -77,23 +79,9 @@ func retrieveSecret(l *slog.Logger, memStore *memstore.MemoryStore) http.Handler
 
 		data, filename, err := memStore.Retrieve(id, passphrase)
 		if err != nil {
-			if err.Error() == "item not found" {
-				l.Warn("secret not found", "id", id)
-				httpjson.SendErrorJSON(w, r, l, http.StatusNotFound, err, "secret not found")
-				return
-			}
-			if err.Error() == "item expired" {
-				l.Warn("secret expired", "id", id)
-				httpjson.SendErrorJSON(w, r, l, http.StatusGone, err, "secret expired")
-				return
-			}
-			if err.Error() == "decryption failed" {
-				l.Warn("decryption failed", "id", id)
-				httpjson.SendErrorJSON(w, r, l, http.StatusUnauthorized, err, "invalid passphrase")
-				return
-			}
-			l.Error("failed to retrieve secret", "id", id, "error", err)
-			httpjson.SendErrorJSON(w, r, l, http.StatusInternalServerError, err, "failed to retrieve secret")
+			// Use consistent error message and status code to prevent information disclosure
+			l.Warn("secret retrieval failed", "id", id)
+			httpjson.SendErrorJSON(w, r, l, http.StatusNotFound, errors.New("secret not found"), "secret not found")
 			return
 		}
 

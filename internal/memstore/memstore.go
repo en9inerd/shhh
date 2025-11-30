@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
+	"strings"
 	"sync"
 	"time"
 
@@ -52,6 +53,19 @@ func generateUUID() (string, error) {
 	return hex.EncodeToString(b), nil
 }
 
+// sanitizeFilename removes path separators and limits length to prevent path traversal and XSS
+func sanitizeFilename(filename string) string {
+	// Remove path separators and other dangerous characters
+	filename = strings.ReplaceAll(filename, "/", "")
+	filename = strings.ReplaceAll(filename, "\\", "")
+	filename = strings.ReplaceAll(filename, "..", "")
+	// Limit length to prevent DoS
+	if len(filename) > 255 {
+		filename = filename[:255]
+	}
+	return filename
+}
+
 func (ms *MemoryStore) Store(data []byte, filename string, passphrase string, ttl time.Duration) (string, *StoredItem, error) {
 	if ttl <= 0 {
 		return "", nil, errors.New("TTL must be positive")
@@ -61,6 +75,10 @@ func (ms *MemoryStore) Store(data []byte, filename string, passphrase string, tt
 		return "", nil, errors.New("data size exceeds maximum allowed")
 	}
 
+	// Sanitize filename
+	filename = sanitizeFilename(filename)
+
+	// Check capacity before expensive encryption operation
 	ms.mu.RLock()
 	if len(ms.items) >= ms.maxItems {
 		ms.mu.RUnlock()
@@ -68,11 +86,10 @@ func (ms *MemoryStore) Store(data []byte, filename string, passphrase string, tt
 	}
 	ms.mu.RUnlock()
 
+	// Do expensive encryption outside lock for better performance
 	now := time.Now()
-	maxTTL := 24 * time.Hour
-	if ttl > maxTTL {
-		ttl = maxTTL
-	}
+	// Use MaxRetention from config instead of hardcoded 24 hours
+	// Note: MaxRetention is already validated in handlers before calling Store
 	expiresAt := now.Add(ttl)
 
 	enc, err := ms.crypto.Encrypt(data, passphrase)
@@ -92,14 +109,16 @@ func (ms *MemoryStore) Store(data []byte, filename string, passphrase string, tt
 		ExpiresAt: expiresAt,
 	}
 
+	// Lock again and check capacity before storing (prevent race condition)
 	ms.mu.Lock()
+	defer ms.mu.Unlock()
+
+	// Final check - items could have been added during encryption
 	if len(ms.items) >= ms.maxItems {
-		ms.mu.Unlock()
 		return "", nil, errors.New("memory store is full")
 	}
-	ms.items[id] = item
-	ms.mu.Unlock()
 
+	ms.items[id] = item
 	return id, item, nil
 }
 

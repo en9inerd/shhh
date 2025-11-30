@@ -24,7 +24,7 @@ func NewCryptoService() *CryptoService {
 		NonceSize:  12,
 		KeyLength:  32,        // AES-256
 		Memory:     64 * 1024, // 64 MB
-		Iterations: 1,
+		Iterations: 3,
 		Threads:    4,
 	}
 }
