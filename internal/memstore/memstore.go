@@ -55,11 +55,9 @@ func generateUUID() (string, error) {
 
 // sanitizeFilename removes path separators and limits length to prevent path traversal and XSS
 func sanitizeFilename(filename string) string {
-	// Remove path separators and other dangerous characters
 	filename = strings.ReplaceAll(filename, "/", "")
 	filename = strings.ReplaceAll(filename, "\\", "")
 	filename = strings.ReplaceAll(filename, "..", "")
-	// Limit length to prevent DoS
 	if len(filename) > 255 {
 		filename = filename[:255]
 	}
@@ -75,7 +73,6 @@ func (ms *MemoryStore) Store(data []byte, filename string, passphrase string, tt
 		return "", nil, errors.New("data size exceeds maximum allowed")
 	}
 
-	// Sanitize filename
 	filename = sanitizeFilename(filename)
 
 	// Check capacity before expensive encryption operation

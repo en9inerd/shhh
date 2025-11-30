@@ -24,22 +24,18 @@ func (w *statusWriter) WriteHeader(status int) {
 func Logger(l *slog.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// wrap ResponseWriter to capture status
 			sw := &statusWriter{ResponseWriter: w, status: http.StatusOK}
 			start := time.Now()
 
-			// serve the actual request
 			next.ServeHTTP(sw, r)
 
 			duration := time.Since(start)
 
-			// Only mask sensitive paths for secret routes
 			path := r.URL.Path
 			if strings.Contains(r.URL.Path, "/secret/") {
 				path = maskSensitivePath(r.URL)
 			}
 
-			// get remote IP
 			remoteIP := "-"
 			if r.RemoteAddr != "" {
 				if host, _, err := net.SplitHostPort(r.RemoteAddr); err == nil && host != "" {
@@ -47,7 +43,6 @@ func Logger(l *slog.Logger) func(http.Handler) http.Handler {
 				}
 			}
 
-			// log structured data
 			l.Info("http request",
 				"method", r.Method,
 				"path", path,
@@ -66,12 +61,10 @@ func maskSensitivePath(u *url.URL) string {
 		path = qun
 	}
 
-	// Mask /api/secret/{id}/{passphrase} paths
 	if strings.Contains(path, "/secret/") {
 		elems := strings.Split(path, "/")
 		for i, elem := range elems {
 			if elem == "secret" && i+2 < len(elems) {
-				// show partial id, hide passphrase
 				id := elems[i+1]
 				if len(id) > 8 {
 					id = id[:8] + "..."
