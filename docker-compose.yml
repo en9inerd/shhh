@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    container_name: shhh
+    restart: unless-stopped
+    ports:
+      - "${NGINX_HTTPS_PORT:-443}:443"
+    volumes:
+      - ./ssl/cert.pem:/etc/nginx/ssl/cert.pem:ro
+      - ./ssl/key.pem:/etc/nginx/ssl/key.pem:ro
+    environment:
+      - SHHH_PORT=8000
+      - SHHH_MIN_PHRASE_SIZE=${SHHH_MIN_PHRASE_SIZE:-5}
+      - SHHH_MAX_PHRASE_SIZE=${SHHH_MAX_PHRASE_SIZE:-128}
+      - SHHH_MAX_ITEMS=${SHHH_MAX_ITEMS:-100}
+      - SHHH_MAX_FILE_SIZE=${SHHH_MAX_FILE_SIZE:-2097152}
+      - SHHH_MAX_RETENTION=${SHHH_MAX_RETENTION:-24h}
+      - NGINX_BACKEND=127.0.0.1:8000
+      - NGINX_SERVER_NAME=${NGINX_SERVER_NAME:-localhost}
+      - NGINX_SSL_ENABLED=${NGINX_SSL_ENABLED:-false}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+
+networks:
+  default:
+    name: shhh-network

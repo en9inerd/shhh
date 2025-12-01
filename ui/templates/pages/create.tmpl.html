@@ -33,6 +33,7 @@
         name="passphrase" 
         required 
         placeholder="Enter passphrase"
+        minlength="{{.Config.MinPhraseSize}}"
         maxlength="{{.Config.MaxPhraseSize}}"
         autocomplete="off">
     </div>
@@ -95,6 +96,7 @@
         name="passphrase" 
         required 
         placeholder="Enter passphrase"
+        minlength="{{.Config.MinPhraseSize}}"
         maxlength="{{.Config.MaxPhraseSize}}"
         autocomplete="off">
     </div>

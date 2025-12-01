@@ -4,8 +4,6 @@ go 1.25.1
 
 require golang.org/x/crypto v0.45.0
 
-require github.com/en9inerd/go-pkgs v0.1.1
-
-replace github.com/en9inerd/go-pkgs => ../go-pkgs
+require github.com/en9inerd/go-pkgs v0.1.2
 
 require golang.org/x/sys v0.38.0 // indirect

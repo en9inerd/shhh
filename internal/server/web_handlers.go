@@ -130,12 +130,15 @@ func getExpirationIntervals(maxRetention time.Duration) []expirationInterval {
 	return append(filtered, expirationInterval{Label: "Custom", Seconds: 0})
 }
 
-func validatePassphrase(passphrase string, maxSize int) error {
+func validatePassphrase(passphrase string, minSize, maxSize int) error {
 	if passphrase == "" {
 		return fmt.Errorf("passphrase is required")
 	}
+	if len(passphrase) < minSize {
+		return fmt.Errorf("passphrase must be at least %d characters", minSize)
+	}
 	if len(passphrase) > maxSize {
-		return fmt.Errorf("passphrase exceeds maximum length of %d", maxSize)
+		return fmt.Errorf("passphrase must be at most %d characters", maxSize)
 	}
 	return nil
 }
@@ -228,7 +231,7 @@ func createSecretWeb(logger *slog.Logger, cfg *config.Config, memStore *memstore
 		}
 
 		passphrase := r.FormValue("passphrase")
-		if err := validatePassphrase(passphrase, cfg.MaxPhraseSize); err != nil {
+		if err := validatePassphrase(passphrase, cfg.MinPhraseSize, cfg.MaxPhraseSize); err != nil {
 			renderError(w, templates, err.Error())
 			return
 		}
