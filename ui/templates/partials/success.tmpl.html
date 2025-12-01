@@ -1,0 +1,19 @@
+{{define "success"}}
+<div class="alert alert-success">
+  <strong>✅ Secret created successfully!</strong>
+</div>
+
+<div class="secret-link">
+  <div class="secret-link-header">
+    <strong>Shareable Link:</strong>
+    <button 
+      type="button" 
+      class="btn copy-btn copy-btn-small" 
+      data-copy-text="http://localhost:{{.Config.Port}}/secret/{{.SecretID}}"
+      title="Copy link">
+      📋 Copy
+    </button>
+  </div>
+  <p class="secret-link-url">http://localhost:{{.Config.Port}}/secret/{{.SecretID}}</p>
+</div>
+{{end}}

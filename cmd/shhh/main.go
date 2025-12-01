@@ -37,7 +37,10 @@ func run(ctx context.Context, args []string, getenv func(string) string) error {
 	memStore := memstore.NewMemoryStore(cfg.MaxRetention, cfg.MaxItems, cfg.MaxFileSize)
 	defer memStore.Stop()
 
-	handler := server.NewServer(logger, cfg, memStore)
+	handler, err := server.NewServer(logger, cfg, memStore)
+	if err != nil {
+		return fmt.Errorf("failed to create server: %w", err)
+	}
 
 	httpServer := &http.Server{
 		Addr:         ":" + cfg.Port,

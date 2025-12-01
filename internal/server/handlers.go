@@ -73,15 +73,25 @@ func saveSecret(l *slog.Logger, cfg *config.Config, memStore *memstore.MemorySto
 func retrieveSecret(l *slog.Logger, memStore *memstore.MemoryStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id := r.PathValue("id")
-		passphrase := r.PathValue("passphrase")
-
-		if id == "" || passphrase == "" {
-			l.Warn("missing id or passphrase")
-			httpjson.SendErrorJSON(w, r, l, http.StatusBadRequest, errors.New("id and passphrase are required"), "id and passphrase are required")
+		if id == "" {
+			httpjson.SendErrorJSON(w, r, l, http.StatusBadRequest, errors.New("id is required"), "id is required")
 			return
 		}
 
-		data, filename, err := memStore.Retrieve(id, passphrase)
+		var req struct {
+			Passphrase string `json:"passphrase"`
+		}
+		if err := httpjson.DecodeJSON(r, &req); err != nil {
+			httpjson.SendErrorJSON(w, r, l, http.StatusBadRequest, err, "can't decode request")
+			return
+		}
+
+		if req.Passphrase == "" {
+			httpjson.SendErrorJSON(w, r, l, http.StatusBadRequest, errors.New("passphrase is required"), "passphrase is required")
+			return
+		}
+
+		data, filename, err := memStore.Retrieve(id, req.Passphrase)
 		if err != nil {
 			l.Warn("secret retrieval failed", "id", id)
 			httpjson.SendErrorJSON(w, r, l, http.StatusNotFound, errors.New("secret not found"), "secret not found")
@@ -89,7 +99,6 @@ func retrieveSecret(l *slog.Logger, memStore *memstore.MemoryStore) http.Handler
 		}
 
 		if filename != "" {
-			// Escape quotes for Content-Disposition header
 			safeFilename := strings.ReplaceAll(filename, `"`, `\"`)
 			encodedFilename := url.QueryEscape(filename)
 
