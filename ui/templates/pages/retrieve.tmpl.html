@@ -1,37 +1,42 @@
 {{define "content"}}
 <h1>🔓 Retrieve Secret</h1>
-<p class="subtitle">Enter the secret ID and passphrase to retrieve your secret</p>
+<p class="subtitle">
+  Enter the secret ID and passphrase to retrieve your secret
+</p>
 
 <div id="result"></div>
 
-<form 
-  hx-post="/web/retrieve" 
+<form
+  hx-post="/web/retrieve"
   hx-target="#result"
   hx-swap="innerHTML"
-  hx-indicator=".htmx-indicator">
+  hx-indicator=".htmx-indicator"
+>
   <div class="form-group">
     <label for="id">Secret ID (UUID)</label>
-    <input 
-      type="text" 
-      id="id" 
-      name="id" 
-      required 
+    <input
+      type="text"
+      id="id"
+      name="id"
+      required
       placeholder="Enter secret UUID"
       value="{{.SecretID}}"
-      autocomplete="off">
+      autocomplete="off"
+    />
   </div>
-  
+
   <div class="form-group">
     <label for="retrieve_passphrase">Passphrase</label>
-    <input 
-      type="password" 
-      id="retrieve_passphrase" 
-      name="passphrase" 
-      required 
+    <input
+      type="password"
+      id="retrieve_passphrase"
+      name="passphrase"
+      required
       placeholder="Enter passphrase"
-      autocomplete="off">
+      autocomplete="off"
+    />
   </div>
-  
+
   <button type="submit" class="btn">
     Retrieve Secret
     <span class="htmx-indicator">⏳</span>

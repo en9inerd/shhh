@@ -6,14 +6,17 @@
 <div class="secret-link">
   <div class="secret-link-header">
     <strong>Shareable Link:</strong>
-    <button 
-      type="button" 
-      class="btn copy-btn copy-btn-small" 
+    <button
+      type="button"
+      class="btn copy-btn copy-btn-small"
       data-copy-text="http://localhost:{{.Config.Port}}/secret/{{.SecretID}}"
-      title="Copy link">
+      title="Copy link"
+    >
       📋 Copy
     </button>
   </div>
-  <p class="secret-link-url">http://localhost:{{.Config.Port}}/secret/{{.SecretID}}</p>
+  <p class="secret-link-url">
+    http://localhost:{{.Config.Port}}/secret/{{.SecretID}}
+  </p>
 </div>
 {{end}}

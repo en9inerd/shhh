@@ -18,4 +18,7 @@ clean:
 update-htmx:
 	./scripts/update-htmx.sh
 
-.PHONY: all build clean update-htmx
+format-html:
+	npx --yes prettier --write "ui/templates/**/*.html"
+
+.PHONY: all build clean update-htmx format-html

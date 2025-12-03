@@ -1,136 +1,135 @@
 {{define "content"}}
 <h1>🔒 SHHH - Share Secrets Securely</h1>
-<p class="subtitle">Create and share encrypted secrets with automatic expiration</p>
+<p class="subtitle">
+  Create and share encrypted secrets with automatic expiration
+</p>
 
 <div id="result"></div>
 
 <div class="tabs">
-  <input type="radio" id="text-tab-radio" name="secret-type" checked>
+  <input type="radio" id="text-tab-radio" name="secret-type" checked />
   <label for="text-tab-radio" class="tab">Text Secret</label>
-  <input type="radio" id="file-tab-radio" name="secret-type">
+  <input type="radio" id="file-tab-radio" name="secret-type" />
   <label for="file-tab-radio" class="tab">File Secret</label>
-  
+
   <div id="text-tab" class="tab-content">
-  <form 
-    hx-post="/web/secret" 
-    hx-target="#result"
-    hx-indicator=".htmx-indicator">
-    <div class="form-group">
-      <label for="secret">Secret Content</label>
-      <textarea 
-        id="secret" 
-        name="secret" 
-        required 
-        placeholder="Enter your secret text here..."
-        maxlength="{{.Config.MaxFileSize}}"></textarea>
-    </div>
-    
-    <div class="form-group">
-      <label for="passphrase">Passphrase</label>
-      <input 
-        type="password" 
-        id="passphrase" 
-        name="passphrase" 
-        required 
-        placeholder="Enter passphrase"
-        minlength="{{.Config.MinPhraseSize}}"
-        maxlength="{{.Config.MaxPhraseSize}}"
-        autocomplete="off">
-    </div>
-    
-    <div class="form-group">
-      <label for="exp_unit">Expiration</label>
-      <select 
-        id="exp_unit" 
-        name="exp_unit" 
-        required>
-        {{range .Intervals}}
-        {{if eq .Seconds 0}}
-        <option value="custom">{{.Label}}</option>
-        {{else}}
-        <option value="{{.Seconds}}" {{if .Selected}}selected{{end}}>{{.Label}}</option>
-        {{end}}
-        {{end}}
-      </select>
-      <div class="custom-exp" id="custom_exp_container">
-        <input 
-          type="number" 
-          id="custom_exp" 
-          name="custom_exp" 
-          placeholder="Enter seconds"
-          min="1"
-          class="custom-exp-input">
+    <form
+      hx-post="/web/secret"
+      hx-target="#result"
+      hx-indicator=".htmx-indicator"
+    >
+      <div class="form-group">
+        <label for="secret">Secret Content</label>
+        <textarea
+          id="secret"
+          name="secret"
+          required
+          placeholder="Enter your secret text here..."
+          maxlength="{{.Config.MaxFileSize}}"
+        ></textarea>
       </div>
-    </div>
-    
-    <button type="submit" class="btn">
-      Create Secret
-      <span class="htmx-indicator">⏳</span>
-    </button>
-  </form>
+
+      <div class="form-group">
+        <label for="passphrase">Passphrase</label>
+        <input
+          type="password"
+          id="passphrase"
+          name="passphrase"
+          required
+          placeholder="Enter passphrase"
+          minlength="{{.Config.MinPhraseSize}}"
+          maxlength="{{.Config.MaxPhraseSize}}"
+          autocomplete="off"
+        />
+      </div>
+
+      <div class="form-group">
+        <label for="exp_unit">Expiration</label>
+        <select id="exp_unit" name="exp_unit" required>
+          {{range .Intervals}} {{if eq .Seconds 0}}
+          <option value="custom">{{.Label}}</option>
+          {{else}}
+          <option value="{{.Seconds}}" {{if .Selected}}selected{{end}}>
+            {{.Label}}
+          </option>
+          {{end}} {{end}}
+        </select>
+        <div class="custom-exp" id="custom_exp_container">
+          <input
+            type="number"
+            id="custom_exp"
+            name="custom_exp"
+            placeholder="Enter seconds"
+            min="1"
+            class="custom-exp-input"
+          />
+        </div>
+      </div>
+
+      <button type="submit" class="btn">
+        Create Secret
+        <span class="htmx-indicator">⏳</span>
+      </button>
+    </form>
   </div>
-  
+
   <div id="file-tab" class="tab-content">
-  <form 
-    hx-post="/web/file" 
-    hx-target="#result"
-    hx-encoding="multipart/form-data"
-    hx-indicator=".htmx-indicator">
-    <div class="form-group">
-      <label for="file">Select File</label>
-      <input 
-        type="file" 
-        id="file" 
-        name="file" 
-        required>
-      <small class="file-size-hint">
-        Max file size: {{div .Config.MaxFileSize 1048576}} MB
-      </small>
-    </div>
-    
-    <div class="form-group">
-      <label for="file_passphrase">Passphrase</label>
-      <input 
-        type="password" 
-        id="file_passphrase" 
-        name="passphrase" 
-        required 
-        placeholder="Enter passphrase"
-        minlength="{{.Config.MinPhraseSize}}"
-        maxlength="{{.Config.MaxPhraseSize}}"
-        autocomplete="off">
-    </div>
-    
-    <div class="form-group">
-      <label for="file_exp_unit">Expiration</label>
-      <select 
-        id="file_exp_unit" 
-        name="exp_unit" 
-        required>
-        {{range .Intervals}}
-        {{if eq .Seconds 0}}
-        <option value="custom">{{.Label}}</option>
-        {{else}}
-        <option value="{{.Seconds}}" {{if .Selected}}selected{{end}}>{{.Label}}</option>
-        {{end}}
-        {{end}}
-      </select>
-      <div class="custom-exp" id="file_custom_exp_container">
-        <input 
-          type="number" 
-          id="file_custom_exp" 
-          name="custom_exp" 
-          placeholder="Enter seconds"
-          min="1"
-          class="custom-exp-input">
+    <form
+      hx-post="/web/file"
+      hx-target="#result"
+      hx-encoding="multipart/form-data"
+      hx-indicator=".htmx-indicator"
+    >
+      <div class="form-group">
+        <label for="file">Select File</label>
+        <input type="file" id="file" name="file" required />
+        <small class="file-size-hint">
+          Max file size: {{div .Config.MaxFileSize 1048576}} MB
+        </small>
       </div>
-    </div>
-    
-    <button type="submit" class="btn">
-      Upload File
-      <span class="htmx-indicator">⏳</span>
-    </button>
-  </form>
+
+      <div class="form-group">
+        <label for="file_passphrase">Passphrase</label>
+        <input
+          type="password"
+          id="file_passphrase"
+          name="passphrase"
+          required
+          placeholder="Enter passphrase"
+          minlength="{{.Config.MinPhraseSize}}"
+          maxlength="{{.Config.MaxPhraseSize}}"
+          autocomplete="off"
+        />
+      </div>
+
+      <div class="form-group">
+        <label for="file_exp_unit">Expiration</label>
+        <select id="file_exp_unit" name="exp_unit" required>
+          {{range .Intervals}} {{if eq .Seconds 0}}
+          <option value="custom">{{.Label}}</option>
+          {{else}}
+          <option value="{{.Seconds}}" {{if .Selected}}selected{{end}}>
+            {{.Label}}
+          </option>
+          {{end}} {{end}}
+        </select>
+        <div class="custom-exp" id="file_custom_exp_container">
+          <input
+            type="number"
+            id="file_custom_exp"
+            name="custom_exp"
+            placeholder="Enter seconds"
+            min="1"
+            class="custom-exp-input"
+          />
+        </div>
+      </div>
+
+      <button type="submit" class="btn">
+        Upload File
+        <span class="htmx-indicator">⏳</span>
+      </button>
+    </form>
   </div>
 </div>
 {{end}}
