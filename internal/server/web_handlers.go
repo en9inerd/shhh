@@ -130,18 +130,6 @@ func getExpirationIntervals(maxRetention time.Duration) []expirationInterval {
 	return append(filtered, expirationInterval{Label: "Custom", Seconds: 0})
 }
 
-func validatePassphrase(passphrase string, minSize, maxSize int) error {
-	if passphrase == "" {
-		return fmt.Errorf("passphrase is required")
-	}
-	if len(passphrase) < minSize {
-		return fmt.Errorf("passphrase must be at least %d characters", minSize)
-	}
-	if len(passphrase) > maxSize {
-		return fmt.Errorf("passphrase must be at most %d characters", maxSize)
-	}
-	return nil
-}
 
 func renderError(w http.ResponseWriter, templates *templateCache, message string) {
 	templates.renderFragment(w, "errors", &templateData{Form: map[string]string{"error": message}})
@@ -165,13 +153,6 @@ func parseExpiration(expUnit, customExp string) (int, error) {
 	return exp, nil
 }
 
-func calculateTTL(exp int, maxRetention time.Duration) time.Duration {
-	ttl := time.Duration(exp) * time.Second
-	if ttl > maxRetention {
-		return maxRetention
-	}
-	return ttl
-}
 
 func renderPage(w http.ResponseWriter, logger *slog.Logger, templates *templateCache, pageName string, td *templateData) {
 	if err := templates.render(w, pageName, td); err != nil {
@@ -231,7 +212,7 @@ func createSecretWeb(logger *slog.Logger, cfg *config.Config, memStore *memstore
 		}
 
 		passphrase := r.FormValue("passphrase")
-		if err := validatePassphrase(passphrase, cfg.MinPhraseSize, cfg.MaxPhraseSize); err != nil {
+		if err := validatePassphrase(passphrase, cfg); err != nil {
 			renderError(w, templates, err.Error())
 			return
 		}

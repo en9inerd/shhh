@@ -43,7 +43,8 @@ temp/
 *.log
 
 # Scripts (not needed in container, except entrypoint)
-scripts/
+scripts/*
+!scripts/entrypoint.sh
 
 # Vendor (will be downloaded)
 vendor/

@@ -1,13 +1,13 @@
-version: '3.8'
-
 services:
   app:
     build: .
     container_name: shhh
     restart: unless-stopped
     ports:
+      - "${NGINX_HTTP_PORT:-80}:80"
       - "${NGINX_HTTPS_PORT:-443}:443"
     volumes:
+      # SSL certificates (only needed when NGINX_SSL_ENABLED=true)
       - ./ssl/cert.pem:/etc/nginx/ssl/cert.pem:ro
       - ./ssl/key.pem:/etc/nginx/ssl/key.pem:ro
     environment:
@@ -20,6 +20,7 @@ services:
       - NGINX_BACKEND=127.0.0.1:8000
       - NGINX_SERVER_NAME=${NGINX_SERVER_NAME:-localhost}
       - NGINX_SSL_ENABLED=${NGINX_SSL_ENABLED:-false}
+      - NGINX_CORS_ORIGIN=${NGINX_CORS_ORIGIN:-*}
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
