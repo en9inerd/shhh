@@ -16,7 +16,7 @@ import (
 	"github.com/en9inerd/shhh/internal/server"
 )
 
-const version = "dev"
+var version = "dev"
 
 func run(ctx context.Context, args []string, getenv func(string) string) error {
 	// Use signal.NotifyContext for cancellation (Grafana blog pattern)

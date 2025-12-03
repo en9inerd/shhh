@@ -15,9 +15,15 @@ RUN go mod download
 # Copy source code
 COPY . .
 
+# Build arguments for architecture and version
+ARG TARGETOS=linux
+ARG TARGETARCH=amd64
+ARG VERSION=dev
+
 # Build the application
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
-    -ldflags='-w -s -extldflags "-static"' \
+RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build \
+    -ldflags='-w -s -extldflags "-static" -X main.version=${VERSION}' \
+    -trimpath \
     -o /bin/shhh \
     ./cmd/shhh/
 
