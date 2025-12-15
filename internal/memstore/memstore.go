@@ -85,8 +85,6 @@ func (ms *MemoryStore) Store(data []byte, filename string, passphrase string, tt
 
 	// Do expensive encryption outside lock for better performance
 	now := time.Now()
-	// Use MaxRetention from config instead of hardcoded 24 hours
-	// Note: MaxRetention is already validated in handlers before calling Store
 	expiresAt := now.Add(ttl)
 
 	enc, err := ms.crypto.Encrypt(data, passphrase)

@@ -19,7 +19,6 @@ import (
 var version = "dev"
 
 func run(ctx context.Context, args []string, getenv func(string) string) error {
-	// Use signal.NotifyContext for cancellation (Grafana blog pattern)
 	ctx, cancel := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
@@ -57,23 +56,19 @@ func run(ctx context.Context, args []string, getenv func(string) string) error {
 		}
 	}()
 
-	// Wait for context cancellation (signal) - Grafana blog pattern
 	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		<-ctx.Done()
 		logger.Info("shutdown signal received")
 
-		shutdownCtx := context.Background()
-		shutdownCtx, cancel := context.WithTimeout(shutdownCtx, 10*time.Second)
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 
 		if err := httpServer.Shutdown(shutdownCtx); err != nil {
 			fmt.Fprintf(os.Stderr, "error shutting down http server: %s\n", err)
 		}
 		logger.Info("server stopped")
-	}()
+	})
 	wg.Wait()
 
 	return nil

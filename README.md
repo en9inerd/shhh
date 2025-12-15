@@ -1,65 +1,79 @@
 # SHHH
 
-Service for easy way to transfer credentials
+A simple service for sharing secrets securely. Encrypt your text or files, share a link, and they'll self-destruct after being retrieved once.
 
-> **Current Status**: "Under development"
+Inspired by [umputun/secrets](https://github.com/umputun/secrets/).
+
+## What it does
+
+SHHH encrypts secrets client-side using AES-256-GCM with Argon2id key derivation. Everything is stored in memory (nothing touches disk), and secrets are automatically deleted after being retrieved or when they expire. There's a web UI if you want it, or you can use the API directly.
 
 ## Features
 
-- Encrypted secret storage with AES-256-GCM
-- Automatic expiration
-- One-time retrieval (secrets deleted after access)
-- Support for text and file uploads
-- Docker-ready with nginx reverse proxy
-- SSL/TLS support
-- Security headers and rate limiting
+- AES-256-GCM encryption with Argon2id key derivation
+- One-time retrieval (secrets are deleted after being accessed)
+- Automatic expiration and cleanup
+- Text and file uploads (up to 2MB by default)
+- Web UI built with HTMX (no JavaScript framework needed)
+- Docker setup with nginx reverse proxy
+- Optional SSL/TLS support
+- Rate limiting and security headers
 
 ## Quick Start
 
-### Docker (Recommended)
+### Docker
+
+The easiest way to run it:
 
 ```bash
-# 1. Copy environment file
 cp .env.example .env
-
-# 2. Start services
 docker-compose up -d
-
-# 3. View logs
-docker-compose logs -f
 ```
 
-The application will be available at `https://localhost` (or your configured domain).
+That's it. The app will be available at `http://localhost` (or `https://localhost` if you enable SSL).
 
 ### Local Development
 
+If you want to run it locally without Docker:
+
 ```bash
-# Build
 go build -o dist/shhh ./cmd/shhh/
-
-# Run
 ./dist/shhh
+```
 
-# Or with custom port
+The default port is 8000, but you can change it:
+
+```bash
 ./dist/shhh -port 8080
+```
+
+Or use the Makefile:
+
+```bash
+make build
+./dist/shhh
 ```
 
 ## Configuration
 
-All configuration is done via environment variables. See `.env.example` for available options:
+All settings are controlled via environment variables. Check `.env.example` for the full list. Here are the main ones:
 
-- `SHHH_PORT` - Application port (default: 8000)
-- `SHHH_MIN_PHRASE_SIZE` - Min passphrase length (default: 5)
-- `SHHH_MAX_PHRASE_SIZE` - Max passphrase length (default: 128)
-- `SHHH_MAX_ITEMS` - Max items in memory (default: 100)
-- `SHHH_MAX_FILE_SIZE` - Max file size in bytes (default: 2MB)
-- `SHHH_MAX_RETENTION` - Max retention time (default: 24h)
+- `SHHH_PORT` - Port the app listens on (default: 8000)
+- `SHHH_MIN_PHRASE_SIZE` - Minimum passphrase length (default: 5)
+- `SHHH_MAX_PHRASE_SIZE` - Maximum passphrase length (default: 128)
+- `SHHH_MAX_ITEMS` - Max number of secrets in memory (default: 100)
+- `SHHH_MAX_FILE_SIZE` - Max file size in bytes (default: 2097152 = 2MB)
+- `SHHH_MAX_RETENTION` - Maximum time a secret can live (default: 24h)
 - `NGINX_SERVER_NAME` - Server name for nginx (default: localhost)
 - `NGINX_SSL_ENABLED` - Enable SSL/TLS (default: false)
 
+You can also pass these as command-line flags if running locally.
+
 ## SSL Setup
 
-### Development (Self-signed Certificate)
+### Development (Self-signed)
+
+For local testing with HTTPS:
 
 ```bash
 mkdir -p ssl
@@ -69,41 +83,43 @@ openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
   -subj "/CN=localhost"
 ```
 
-Then set `NGINX_SSL_ENABLED=true` in `.env` and restart:
+Then set `NGINX_SSL_ENABLED=true` in your `.env` and restart:
 
 ```bash
-docker-compose restart app
+docker-compose restart
 ```
 
 ### Production (Let's Encrypt)
 
-1. **Obtain certificate on host:**
+1. Get your certificate on the host:
    ```bash
    sudo certbot certonly --standalone -d your-domain.com
    ```
 
-2. **Mount certificates in docker-compose.yml:**
+2. Either mount the certs directly in `docker-compose.yml`:
    ```yaml
    volumes:
      - /etc/letsencrypt/live/your-domain.com/fullchain.pem:/etc/nginx/ssl/cert.pem:ro
      - /etc/letsencrypt/live/your-domain.com/privkey.pem:/etc/nginx/ssl/key.pem:ro
    ```
-   Or copy to local ssl directory:
+   
+   Or copy them to a local `ssl/` directory:
    ```bash
    mkdir -p ssl
    sudo cp /etc/letsencrypt/live/your-domain.com/fullchain.pem ssl/cert.pem
    sudo cp /etc/letsencrypt/live/your-domain.com/privkey.pem ssl/key.pem
    ```
 
-3. **Set environment variables:**
-   ```bash
+3. Set in `.env`:
+   ```
    NGINX_SSL_ENABLED=true
    NGINX_SERVER_NAME=your-domain.com
    ```
 
-## API Endpoints
+## API
 
-### Create Text Secret
+### Create a text secret
+
 ```bash
 POST /api/secret
 Content-Type: application/json
@@ -115,7 +131,16 @@ Content-Type: application/json
 }
 ```
 
-### Create File Secret
+Returns:
+```json
+{
+  "key": "abc123...",
+  "exp": 3600
+}
+```
+
+### Create a file secret
+
 ```bash
 POST /api/file
 Content-Type: multipart/form-data
@@ -125,7 +150,8 @@ passphrase: mypass
 exp: 3600
 ```
 
-### Retrieve Secret
+### Retrieve a secret
+
 ```bash
 POST /api/secret/{id}
 Content-Type: application/json
@@ -135,121 +161,119 @@ Content-Type: application/json
 }
 ```
 
-### Get Parameters
+Returns the decrypted secret. The secret is deleted immediately after retrieval.
+
+### Get configuration parameters
+
 ```bash
 GET /api/params
 ```
 
+Returns the current limits and settings (useful for client-side validation).
+
 ## Web Interface
 
-The application includes a web interface:
+The web UI is pretty straightforward:
 
-- `GET /` - Create secret page
-- `GET /secret/{id}` - Retrieve secret page
-- `POST /web/secret` - Create text secret (web)
-- `POST /web/file` - Create file secret (web)
-- `POST /web/retrieve` - Retrieve secret (web)
+- `GET /` - Create a new secret (text or file)
+- `GET /secret/{id}` - Retrieve page for a specific secret
+- `POST /web/secret` - Create text secret (web form)
+- `POST /web/file` - Upload file secret (web form)
+- `POST /web/retrieve` - Retrieve secret (web form)
 
-## Security Features
+The UI uses HTMX, so it's lightweight and works without a bunch of JavaScript.
 
-### Application Security
-- AES-256-GCM encryption with Argon2 key derivation
-- One-time retrieval (secrets deleted after access)
-- Automatic expiration and cleanup
-- Memory-only storage (no filesystem writes)
-- Template auto-escaping (XSS protection)
-- Input validation and size limits
+## Security
 
-### Nginx Security (Docker)
-- Per-IP rate limiting (API: 10r/s, Web: 20r/s)
-- Request size limits (2.5MB max)
-- Security headers (HSTS, X-Frame-Options, etc.)
-- SSL/TLS support with modern ciphers
-- CORS support with configurable origins
+### Application
+
+- **Encryption**: AES-256-GCM with Argon2id key derivation (64MB memory, 3 iterations, 4 threads)
+- **Storage**: Everything is in-memory only. Nothing is written to disk.
+- **One-time retrieval**: Secrets are deleted immediately after being accessed.
+- **Automatic cleanup**: Expired secrets are removed automatically.
+- **Input validation**: All inputs are validated and sanitized.
+- **XSS protection**: Templates auto-escape content.
+
+### Nginx (Docker setup)
+
+- Rate limiting: 10 req/s for API, 20 req/s for web interface
+- Request size limit: 2.5MB max
+- Security headers: HSTS, X-Frame-Options, CSP, etc.
+- CORS: Configurable via `NGINX_CORS_ORIGIN`
 
 ## Docker Commands
 
 ```bash
-# Start services
+# Start everything
 docker-compose up -d
 
-# Stop services
+# Stop everything
 docker-compose down
 
 # View logs
 docker-compose logs -f
 
-# Restart services
+# Restart
 docker-compose restart
 
-# Check status
-docker-compose ps
-
-# Rebuild images
+# Rebuild
 docker-compose build
 ```
 
 ## Troubleshooting
 
-### Container won't start
+**Container won't start?**
 ```bash
-# Check logs
 docker-compose logs app
-
-# Test nginx configuration
-docker-compose exec app nginx -t
+docker-compose exec app nginx -t  # Test nginx config
 ```
 
-### SSL certificate issues
+**SSL issues?**
 ```bash
-# Verify certificates exist
-ls -la ssl/
-
-# Check certificate validity
-openssl x509 -in ssl/cert.pem -text -noout
+ls -la ssl/  # Make sure certs exist
+openssl x509 -in ssl/cert.pem -text -noout  # Check cert validity
 ```
 
-### Can't connect to backend
+**Can't reach the backend?**
 ```bash
-# Verify app is running
-docker-compose ps app
-
-# Test health endpoint
-curl https://localhost/health
-
-# Check app logs
-docker-compose logs app
+docker-compose ps  # Check if it's running
+curl http://localhost:8000/health  # Test directly
+docker-compose logs app  # Check logs
 ```
 
 ## Development
 
-### Building
 ```bash
+# Build
 make build
-```
 
-### Running Tests
-```bash
+# Run tests
 go test ./...
+
+# Format HTML templates
+make format-html
+
+# Update HTMX
+make update-htmx
 ```
 
-### Project Structure
+The project structure is pretty standard Go:
+
 ```
 .
-├── cmd/shhh/          # Application entry point
+├── cmd/shhh/          # Main entry point
 ├── internal/
-│   ├── config/        # Configuration
-│   ├── crypto/        # Encryption service
-│   ├── memstore/      # Memory storage
-│   ├── server/        # HTTP server and handlers
+│   ├── config/        # Config parsing
+│   ├── crypto/        # Encryption (AES + Argon2id)
+│   ├── memstore/      # In-memory storage
+│   ├── server/        # HTTP handlers and routes
 │   └── validator/     # Input validation
-├── ui/                # Web UI (templates, static files)
-├── Dockerfile         # App container
-├── docker-compose.yml # Docker Compose configuration
-├── nginx.conf         # Nginx configuration
-└── ssl/               # SSL certificates (created at runtime)
+├── ui/                # Web UI (templates + static files)
+├── Dockerfile
+├── docker-compose.yml
+└── nginx.conf
 ```
 
 ## License
 
-See LICENSE file for details.
+See LICENSE file.
