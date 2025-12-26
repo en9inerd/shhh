@@ -22,13 +22,12 @@ func run(ctx context.Context, args []string, getenv func(string) string) error {
 	ctx, cancel := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
-	cfg, err := config.ParseConfig(args, getenv)
+	cleanedArgs, verbose := cleanArgs(args)
+
+	cfg, err := config.ParseConfig(cleanedArgs, getenv)
 	if err != nil {
 		return fmt.Errorf("failed to parse config: %w", err)
 	}
-
-	cleanedArgs, verbose := cleanArgs(args)
-	_ = cleanedArgs // may be used later
 
 	logger := log.NewLogger(verbose)
 	logger.Info("starting server", "version", version, "port", cfg.Port)
