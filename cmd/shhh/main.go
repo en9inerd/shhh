@@ -31,8 +31,15 @@ func run(ctx context.Context, args []string, getenv func(string) string) error {
 
 	logger := log.NewLogger(verbose)
 	logger.Info("starting server", "version", version, "port", cfg.Port)
+	logger.Info("config",
+		"max_retention", cfg.MaxRetention,
+		"max_items", cfg.MaxItems,
+		"max_file_size", cfg.MaxFileSize,
+		"min_phrase_size", cfg.MinPhraseSize,
+		"max_phrase_size", cfg.MaxPhraseSize,
+	)
 
-	memStore := memstore.NewMemoryStore(cfg.MaxRetention, cfg.MaxItems, cfg.MaxFileSize)
+	memStore := memstore.NewMemoryStore(logger, cfg.MaxRetention, cfg.MaxItems, cfg.MaxFileSize)
 	defer memStore.Stop()
 
 	handler, err := server.NewServer(logger, cfg, memStore)

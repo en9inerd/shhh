@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
+	"log/slog"
 	"strings"
 	"sync"
 	"time"
@@ -27,9 +28,10 @@ type MemoryStore struct {
 	cancel      context.CancelFunc
 	maxItems    int
 	maxDataSize int64
+	logger      *slog.Logger
 }
 
-func NewMemoryStore(retention time.Duration, maxItems int, maxDataSize int64) *MemoryStore {
+func NewMemoryStore(logger *slog.Logger, retention time.Duration, maxItems int, maxDataSize int64) *MemoryStore {
 	ctx, cancel := context.WithCancel(context.Background())
 	store := &MemoryStore{
 		items:       make(map[string]*StoredItem),
@@ -38,6 +40,7 @@ func NewMemoryStore(retention time.Duration, maxItems int, maxDataSize int64) *M
 		cancel:      cancel,
 		maxItems:    maxItems,
 		maxDataSize: maxDataSize,
+		logger:      logger,
 	}
 	go store.cleaner(retention)
 	return store
@@ -79,6 +82,7 @@ func (ms *MemoryStore) Store(data []byte, filename string, passphrase string, tt
 	ms.mu.RLock()
 	if len(ms.items) >= ms.maxItems {
 		ms.mu.RUnlock()
+		ms.logger.Warn("memory store is full", "max_items", ms.maxItems)
 		return "", nil, errors.New("memory store is full")
 	}
 	ms.mu.RUnlock()
@@ -110,6 +114,7 @@ func (ms *MemoryStore) Store(data []byte, filename string, passphrase string, tt
 
 	// Final check - items could have been added during encryption
 	if len(ms.items) >= ms.maxItems {
+		ms.logger.Warn("memory store is full", "max_items", ms.maxItems)
 		return "", nil, errors.New("memory store is full")
 	}
 
@@ -130,6 +135,7 @@ func (ms *MemoryStore) Retrieve(id, passphrase string) ([]byte, string, error) {
 		ms.mu.Lock()
 		delete(ms.items, id)
 		ms.mu.Unlock()
+		ms.logger.Debug("item expired on retrieval", "id", id)
 		return nil, "", errors.New("item expired")
 	}
 
@@ -172,6 +178,7 @@ func (ms *MemoryStore) cleaner(retention time.Duration) {
 					delete(ms.items, id)
 				}
 				ms.mu.Unlock()
+				ms.logger.Debug("cleaned expired items", "count", len(expired))
 			}
 		case <-ms.stopCtx.Done():
 			return

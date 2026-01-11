@@ -213,12 +213,14 @@ func createSecretWeb(logger *slog.Logger, cfg *config.Config, memStore *memstore
 
 		passphrase := r.FormValue("passphrase")
 		if err := validatePassphrase(passphrase, cfg); err != nil {
+			logger.Warn("passphrase validation failed", "error", err)
 			renderError(w, templates, err.Error())
 			return
 		}
 
 		exp, err := parseExpiration(r.FormValue("exp_unit"), r.FormValue("custom_exp"))
 		if err != nil {
+			logger.Warn("expiration parsing failed", "error", err)
 			renderError(w, templates, err.Error())
 			return
 		}
@@ -231,7 +233,7 @@ func createSecretWeb(logger *slog.Logger, cfg *config.Config, memStore *memstore
 		}
 
 		logger.Info("created secret", "id", id, "filename", filename, "expires_at", storedItem.ExpiresAt.Format(time.RFC3339))
-		renderSuccess(w, templates, id, cfg)
+		renderSuccess(w, logger, templates, id, cfg)
 	}
 }
 
@@ -269,11 +271,12 @@ func createFileSecretWeb(logger *slog.Logger, cfg *config.Config, memStore *mems
 	return createSecretWeb(logger, cfg, memStore, templates, getData)
 }
 
-func renderSuccess(w http.ResponseWriter, templates *templateCache, id string, cfg *config.Config) {
+func renderSuccess(w http.ResponseWriter, logger *slog.Logger, templates *templateCache, id string, cfg *config.Config) {
 	if err := templates.renderFragment(w, "success", &templateData{
 		SecretID: id,
 		Config:   cfg,
 	}); err != nil {
+		logger.Error("failed to render success template", "error", err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 	}
 }
@@ -303,8 +306,10 @@ func retrieveSecretWeb(logger *slog.Logger, memStore *memstore.MemoryStore, temp
 		if filename != "" {
 			form["filename"] = filename
 			form["file_data_b64"] = base64.StdEncoding.EncodeToString(data)
+			logger.Info("retrieved file", "id", id, "filename", filename)
 		} else {
 			form["secret"] = string(data)
+			logger.Info("retrieved secret", "id", id)
 		}
 
 		templates.renderFragment(w, "secret_result", &templateData{

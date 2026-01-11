@@ -1,9 +1,15 @@
 package memstore
 
 import (
+	"io"
+	"log/slog"
 	"testing"
 	"time"
 )
+
+func testLogger() *slog.Logger {
+	return slog.New(slog.NewTextHandler(io.Discard, nil))
+}
 
 const (
 	testPassphrase        = "secret123"
@@ -13,7 +19,7 @@ const (
 )
 
 func newTestStore() *MemoryStore {
-	return NewMemoryStore(cleanupDuration, maxItems, maxDataSize)
+	return NewMemoryStore(testLogger(), cleanupDuration, maxItems, maxDataSize)
 }
 
 func TestStoreAndRetrieve_Text(t *testing.T) {
@@ -80,7 +86,7 @@ func TestStore_InvalidTTL(t *testing.T) {
 }
 
 func TestStore_ExceedsDataSize(t *testing.T) {
-	store := NewMemoryStore(cleanupDuration, maxItems, 5) // 5 bytes max
+	store := NewMemoryStore(testLogger(), cleanupDuration, maxItems, 5) // 5 bytes max
 	defer store.Stop()
 
 	_, _, err := store.Store([]byte("123456"), "", testPassphrase, 1*time.Second)
@@ -90,7 +96,7 @@ func TestStore_ExceedsDataSize(t *testing.T) {
 }
 
 func TestStore_ExceedsMaxItems(t *testing.T) {
-	store := NewMemoryStore(cleanupDuration, 1, maxDataSize) // allow only 1 item
+	store := NewMemoryStore(testLogger(), cleanupDuration, 1, maxDataSize) // allow only 1 item
 	defer store.Stop()
 
 	_, _, err := store.Store([]byte("one"), "", testPassphrase, 1*time.Second)
@@ -148,7 +154,7 @@ func TestRetrieve_WrongPassphrase(t *testing.T) {
 }
 
 func TestCleaner_RemovesExpired(t *testing.T) {
-	store := NewMemoryStore(1*time.Second, maxItems, maxDataSize)
+	store := NewMemoryStore(testLogger(), 1*time.Second, maxItems, maxDataSize)
 	defer store.Stop()
 
 	id, _, err := store.Store([]byte("clean me"), "", testPassphrase, 1*time.Millisecond)
