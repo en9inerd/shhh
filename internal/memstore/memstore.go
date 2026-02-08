@@ -130,36 +130,29 @@ func (ms *MemoryStore) Store(data []byte, filename string, passphrase string, tt
 }
 
 func (ms *MemoryStore) Retrieve(id, passphrase string) ([]byte, string, error) {
-	ms.mu.RLock()
+	ms.mu.Lock()
 	item, ok := ms.items[id]
 	if !ok {
-		ms.mu.RUnlock()
+		ms.mu.Unlock()
 		return nil, "", errors.New("item not found")
 	}
 
 	if time.Now().After(item.ExpiresAt) {
-		ms.mu.RUnlock()
-		ms.mu.Lock()
 		delete(ms.items, id)
 		ms.mu.Unlock()
 		ms.logger.Debug("item expired on retrieval", "id", id)
 		return nil, "", errors.New("item expired")
 	}
 
-	enc := item.Data
-	filename := item.Filename
-	ms.mu.RUnlock()
+	delete(ms.items, id)
+	ms.mu.Unlock()
 
-	decrypted, err := ms.crypto.Decrypt(enc, passphrase)
+	decrypted, err := ms.crypto.Decrypt(item.Data, passphrase)
 	if err != nil {
 		return nil, "", errors.New("decryption failed")
 	}
 
-	ms.mu.Lock()
-	delete(ms.items, id)
-	ms.mu.Unlock()
-
-	return decrypted, filename, nil
+	return decrypted, item.Filename, nil
 }
 
 func (ms *MemoryStore) cleaner(retention time.Duration) {
