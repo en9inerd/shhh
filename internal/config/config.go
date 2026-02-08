@@ -2,12 +2,17 @@ package config
 
 import (
 	"flag"
+	"fmt"
 	"strconv"
+	"strings"
 	"time"
+
+	"github.com/en9inerd/go-pkgs/validator"
 )
 
 type Config struct {
 	Port          string
+	BaseURL       string
 	MinPhraseSize int
 	MaxPhraseSize int
 	MaxItems      int
@@ -53,6 +58,7 @@ func ParseConfig(args []string, getenv func(string) string) (*Config, error) {
 	fs := flag.NewFlagSet("shhh", flag.ContinueOnError)
 
 	port := fs.String("port", getEnv("SHHH_PORT", "8000"), "Port to listen on")
+	baseURL := fs.String("base-url", getEnv("SHHH_BASE_URL", ""), "Public base URL (e.g. https://shhh.example.com)")
 	minPhraseSize := fs.Int("min-phrase-size", getEnvInt("SHHH_MIN_PHRASE_SIZE", 5), "Min passphrase size")
 	maxPhraseSize := fs.Int("max-phrase-size", getEnvInt("SHHH_MAX_PHRASE_SIZE", 128), "Max passphrase size")
 	maxItems := fs.Int("max-items", getEnvInt("SHHH_MAX_ITEMS", 100), "Max number of items in memory")
@@ -63,12 +69,32 @@ func ParseConfig(args []string, getenv func(string) string) (*Config, error) {
 		return nil, err
 	}
 
+	parsedBaseURL, err := sanitizeBaseURL(*baseURL)
+	if err != nil {
+		return nil, err
+	}
+
 	return &Config{
 		Port:          *port,
+		BaseURL:       parsedBaseURL,
 		MinPhraseSize: *minPhraseSize,
 		MaxPhraseSize: *maxPhraseSize,
 		MaxItems:      *maxItems,
 		MaxFileSize:   *maxFileSize,
 		MaxRetention:  *maxRetention,
 	}, nil
+}
+
+func sanitizeBaseURL(raw string) (string, error) {
+	if raw == "" {
+		return "", nil
+	}
+
+	raw = strings.TrimRight(raw, "/")
+
+	if !validator.IsHTTPURL(raw) {
+		return "", fmt.Errorf("base-url must be a valid HTTP or HTTPS URL")
+	}
+
+	return raw, nil
 }

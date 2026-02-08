@@ -1,5 +1,5 @@
 # ---------- Build ----------
-FROM golang:1.25-alpine AS builder
+FROM golang:1.25.7-alpine AS builder
 
 # Install packages with --no-scripts to avoid trigger errors in QEMU emulation
 RUN apk update && apk add --no-cache --no-scripts git ca-certificates
@@ -25,7 +25,7 @@ RUN CGO_ENABLED=0 \
       ./cmd/shhh
 
 # ---------- Runtime ----------
-FROM nginx:alpine
+FROM nginx:1.28-alpine
 
 # Install packages
 # Use --no-scripts to skip triggers that fail in QEMU emulation for multi-arch builds

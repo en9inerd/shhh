@@ -48,35 +48,34 @@ func run(ctx context.Context, args []string, getenv func(string) string) error {
 	}
 
 	httpServer := &http.Server{
-		Addr:         ":" + cfg.Port,
-		Handler:      handler,
-		ReadTimeout:  15 * time.Second,
-		WriteTimeout: 15 * time.Second,
-		IdleTimeout:  60 * time.Second,
+		Addr:              ":" + cfg.Port,
+		Handler:           handler,
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       15 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       60 * time.Second,
 	}
-
-	go func() {
-		logger.Info("listening", "addr", httpServer.Addr)
-		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			fmt.Fprintf(os.Stderr, "error listening and serving: %s\n", err)
-		}
-	}()
 
 	var wg sync.WaitGroup
 	wg.Go(func() {
 		<-ctx.Done()
 		logger.Info("shutdown signal received")
 
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
+		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer shutdownCancel()
 
 		if err := httpServer.Shutdown(shutdownCtx); err != nil {
 			fmt.Fprintf(os.Stderr, "error shutting down http server: %s\n", err)
 		}
 		logger.Info("server stopped")
 	})
-	wg.Wait()
 
+	logger.Info("listening", "addr", httpServer.Addr)
+	if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		return fmt.Errorf("error listening and serving: %w", err)
+	}
+
+	wg.Wait()
 	return nil
 }
 

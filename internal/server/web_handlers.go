@@ -26,6 +26,7 @@ type templateData struct {
 	Config      *config.Config
 	Intervals   []expirationInterval
 	SecretID    string
+	BaseURL     string
 }
 
 type expirationInterval struct {
@@ -233,7 +234,7 @@ func createSecretWeb(logger *slog.Logger, cfg *config.Config, memStore *memstore
 		}
 
 		logger.Info("created secret", "id", id, "filename", filename, "expires_at", storedItem.ExpiresAt.Format(time.RFC3339))
-		renderSuccess(w, logger, templates, id, cfg)
+		renderSuccess(w, r, logger, templates, id, cfg)
 	}
 }
 
@@ -271,10 +272,19 @@ func createFileSecretWeb(logger *slog.Logger, cfg *config.Config, memStore *mems
 	return createSecretWeb(logger, cfg, memStore, templates, getData)
 }
 
-func renderSuccess(w http.ResponseWriter, logger *slog.Logger, templates *templateCache, id string, cfg *config.Config) {
+func renderSuccess(w http.ResponseWriter, r *http.Request, logger *slog.Logger, templates *templateCache, id string, cfg *config.Config) {
+	baseURL := cfg.BaseURL
+	if baseURL == "" {
+		scheme := "http"
+		if r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https" {
+			scheme = "https"
+		}
+		baseURL = scheme + "://" + r.Host
+	}
 	if err := templates.renderFragment(w, "success", &templateData{
 		SecretID: id,
 		Config:   cfg,
+		BaseURL:  baseURL,
 	}); err != nil {
 		logger.Error("failed to render success template", "error", err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)

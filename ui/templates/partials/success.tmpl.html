@@ -9,14 +9,14 @@
     <button
       type="button"
       class="btn copy-btn copy-btn-small"
-      data-copy-text="http://localhost:{{.Config.Port}}/secret/{{.SecretID}}"
+      data-copy-text="{{.BaseURL}}/secret/{{.SecretID}}"
       title="Copy link"
     >
       📋 Copy
     </button>
   </div>
   <p class="secret-link-url">
-    http://localhost:{{.Config.Port}}/secret/{{.SecretID}}
+    {{.BaseURL}}/secret/{{.SecretID}}
   </p>
 </div>
 {{end}}

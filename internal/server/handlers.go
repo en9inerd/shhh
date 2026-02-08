@@ -14,7 +14,7 @@ import (
 	"github.com/en9inerd/go-pkgs/httpjson"
 	"github.com/en9inerd/shhh/internal/config"
 	"github.com/en9inerd/shhh/internal/memstore"
-	"github.com/en9inerd/shhh/internal/validator"
+	"github.com/en9inerd/go-pkgs/validator"
 )
 
 type saveSecretRequest struct {
@@ -37,10 +37,10 @@ func validatePassphrase(passphrase string, cfg *config.Config) error {
 	if passphrase == "" {
 		return errors.New("passphrase is required")
 	}
-	if len(passphrase) < cfg.MinPhraseSize {
+	if !validator.MinChars(passphrase, cfg.MinPhraseSize) {
 		return fmt.Errorf("passphrase must be at least %d characters", cfg.MinPhraseSize)
 	}
-	if len(passphrase) > cfg.MaxPhraseSize {
+	if !validator.MaxChars(passphrase, cfg.MaxPhraseSize) {
 		return fmt.Errorf("passphrase must be at most %d characters", cfg.MaxPhraseSize)
 	}
 	return nil

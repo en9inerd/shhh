@@ -19,7 +19,9 @@ func SecurityHeaders(next http.Handler) http.Handler {
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.Header().Set("X-Frame-Options", "DENY")
 		w.Header().Set("Referrer-Policy", "no-referrer")
-		w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' 'unsafe-hashes'")
+		w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'")
+		w.Header().Set("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=()")
+		w.Header().Set("Cross-Origin-Opener-Policy", "same-origin")
 		next.ServeHTTP(w, r)
 	})
 }
@@ -37,7 +39,7 @@ func NewServer(
 		middleware.RealIP,
 		middleware.Recoverer(logger, false),
 		middleware.GlobalThrottle(1000),
-		middleware.Timeout(60*time.Second),
+		middleware.Timeout(25*time.Second),
 		middleware.Health,
 		middleware.SizeLimit(maxRequestSize),
 	)

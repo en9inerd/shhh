@@ -31,7 +31,7 @@ cp .env.example .env
 docker-compose up -d
 ```
 
-That's it. The app will be available at `http://localhost` (or `https://localhost` if you enable SSL).
+That's it. The app will be available at `http://localhost` (or `https://localhost` if you enable SSL -- HTTP requests are automatically redirected to HTTPS).
 
 ### Local Development
 
@@ -60,6 +60,7 @@ make build
 All settings are controlled via environment variables. Check `.env.example` for the full list. Here are the main ones:
 
 - `SHHH_PORT` - Port the app listens on (default: 8000)
+- `SHHH_BASE_URL` - Public base URL for generated links (e.g. `https://shhh.example.com`). When not set, links are derived from the request's `Host` header and protocol.
 - `SHHH_MIN_PHRASE_SIZE` - Minimum passphrase length (default: 5)
 - `SHHH_MAX_PHRASE_SIZE` - Maximum passphrase length (default: 128)
 - `SHHH_MAX_ITEMS` - Max number of secrets in memory (default: 100)
@@ -191,16 +192,18 @@ The UI uses HTMX, so it's lightweight and works without a bunch of JavaScript.
 - **Encryption**: AES-256-GCM with Argon2id key derivation (64MB memory, 3 iterations, 4 threads)
 - **Storage**: Everything is in-memory only. Nothing is written to disk.
 - **One-time retrieval**: Secrets are deleted immediately after being accessed.
-- **Automatic cleanup**: Expired secrets are removed automatically.
-- **Input validation**: All inputs are validated and sanitized.
+- **Automatic cleanup**: Expired secrets are removed on a regular interval (every 30s-5min depending on max retention).
+- **Input validation**: All inputs are validated and sanitized (including filename sanitization against path traversal and header injection).
 - **XSS protection**: Templates auto-escape content.
+- **Security headers**: CSP (no unsafe-inline for scripts), X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy, Cross-Origin-Opener-Policy.
 
 ### Nginx (Docker setup)
 
 - Rate limiting: 10 req/s for API, 20 req/s for web interface
 - Request size limit: 2.5MB max
-- Security headers: HSTS, X-Frame-Options, CSP, etc.
-- CORS: Configurable via `NGINX_CORS_ORIGIN`
+- Automatic HTTP-to-HTTPS redirect when SSL is enabled
+- Security headers: HSTS (on SSL), server tokens hidden
+- CORS: Configurable via `NGINX_CORS_ORIGIN` (defaults to `*` -- restrict this in production)
 
 ## Docker Commands
 
@@ -266,9 +269,9 @@ The project structure is pretty standard Go:
 ├── internal/
 │   ├── config/        # Config parsing
 │   ├── crypto/        # Encryption (AES + Argon2id)
+│   ├── log/           # Logging
 │   ├── memstore/      # In-memory storage
-│   ├── server/        # HTTP handlers and routes
-│   └── validator/     # Input validation
+│   └── server/        # HTTP handlers and routes
 ├── ui/                # Web UI (templates + static files)
 ├── Dockerfile
 ├── docker-compose.yml

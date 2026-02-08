@@ -56,11 +56,18 @@ func generateUUID() (string, error) {
 	return hex.EncodeToString(b), nil
 }
 
-// sanitizeFilename removes path separators and limits length to prevent path traversal and XSS
+// sanitizeFilename strips control characters (0x00-0x1F, 0x7F) to prevent
+// header injection via Content-Disposition, and limits length.
 func sanitizeFilename(filename string) string {
-	filename = strings.ReplaceAll(filename, "/", "")
-	filename = strings.ReplaceAll(filename, "\\", "")
-	filename = strings.ReplaceAll(filename, "..", "")
+	var cleaned strings.Builder
+	cleaned.Grow(len(filename))
+	for _, r := range filename {
+		if r >= 0x20 && r != 0x7F {
+			cleaned.WriteRune(r)
+		}
+	}
+	filename = cleaned.String()
+
 	if len(filename) > 255 {
 		filename = filename[:255]
 	}
@@ -156,7 +163,16 @@ func (ms *MemoryStore) Retrieve(id, passphrase string) ([]byte, string, error) {
 }
 
 func (ms *MemoryStore) cleaner(retention time.Duration) {
-	ticker := time.NewTicker(retention)
+	interval := retention / 60
+	switch {
+	case retention < time.Minute:
+		interval = retention
+	case interval < 30*time.Second:
+		interval = 30 * time.Second
+	case interval > 5*time.Minute:
+		interval = 5 * time.Minute
+	}
+	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
 	for {
