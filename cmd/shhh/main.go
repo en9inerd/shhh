@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -71,7 +72,7 @@ func run(ctx context.Context, args []string, getenv func(string) string) error {
 	})
 
 	logger.Info("listening", "addr", httpServer.Addr)
-	if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+	if err := httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		return fmt.Errorf("error listening and serving: %w", err)
 	}
 

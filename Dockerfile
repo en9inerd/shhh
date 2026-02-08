@@ -28,9 +28,7 @@ RUN CGO_ENABLED=0 \
 # ---------- Runtime ----------
 FROM nginx:1.28-alpine
 
-# Install packages
-# Use --no-scripts to skip triggers that fail in QEMU emulation for multi-arch builds
-# The packages function correctly without their post-install triggers
+# Install packages with --no-scripts to avoid trigger errors in QEMU emulation
 RUN apk update && \
     apk add --no-cache --no-scripts \
         ca-certificates \
