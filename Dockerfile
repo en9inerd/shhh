@@ -19,6 +19,7 @@ RUN CGO_ENABLED=0 \
     GOOS=${TARGETOS:-linux} \
     GOARCH=${TARGETARCH:-amd64} \
     go build \
+      -gcflags="all=-l -B" \
       -trimpath \
       -ldflags="-s -w -X main.version=${VERSION}" \
       -o /shhh \
