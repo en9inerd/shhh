@@ -69,7 +69,7 @@ func sanitizeFilename(filename string) string {
 	filename = cleaned.String()
 
 	if len(filename) > 255 {
-		filename = filename[:255]
+		filename = strings.ToValidUTF8(filename[:255], "")
 	}
 	return filename
 }
