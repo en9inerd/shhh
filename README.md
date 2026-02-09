@@ -1,5 +1,7 @@
 # SHHH
 
+[![Docker Hub](https://img.shields.io/docker/v/enginerd/shhh?label=Docker%20Hub&logo=docker&sort=semver)](https://hub.docker.com/r/enginerd/shhh)
+
 A simple service for sharing secrets securely. Encrypt your text or files, share a link, and they'll self-destruct after being retrieved once.
 
 Inspired by [umputun/secrets](https://github.com/umputun/secrets/).  

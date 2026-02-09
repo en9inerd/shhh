@@ -1,6 +1,7 @@
 services:
   app:
     build: .
+    image: ${DOCKERHUB_USERNAME:-enginerd}/shhh:${VERSION:-latest}
     container_name: shhh
     restart: unless-stopped
     ports:
