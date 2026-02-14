@@ -23,14 +23,12 @@ func run(ctx context.Context, args []string, getenv func(string) string) error {
 	ctx, cancel := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
-	cleanedArgs, verbose := cleanArgs(args)
-
-	cfg, err := config.ParseConfig(cleanedArgs, getenv)
+	cfg, err := config.ParseConfig(args, getenv)
 	if err != nil {
 		return fmt.Errorf("failed to parse config: %w", err)
 	}
 
-	logger := log.NewLogger(verbose)
+	logger := log.NewLogger(cfg.Verbose)
 	logger.Info("starting server", "version", version, "port", cfg.Port)
 	logger.Info("config",
 		"max_retention", cfg.MaxRetention,
@@ -88,13 +86,3 @@ func main() {
 	}
 }
 
-func cleanArgs(args []string) (cleanArgs []string, verbose bool) {
-	for _, arg := range args {
-		if arg == "--verbose" || arg == "-v" {
-			verbose = true
-		} else {
-			cleanArgs = append(cleanArgs, arg)
-		}
-	}
-	return
-}

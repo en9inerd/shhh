@@ -18,6 +18,9 @@ type Config struct {
 	MaxItems      int
 	MaxFileSize   int64
 	MaxRetention  time.Duration
+
+	// Runtime
+	Verbose bool
 }
 
 func ParseConfig(args []string, getenv func(string) string) (*Config, error) {
@@ -65,6 +68,10 @@ func ParseConfig(args []string, getenv func(string) string) (*Config, error) {
 	maxFileSize := fs.Int64("max-file-size", getEnvInt64("SHHH_MAX_FILE_SIZE", 2*1024*1024), "Max file size in bytes")
 	maxRetention := fs.Duration("max-retention", getEnvDuration("SHHH_MAX_RETENTION", 24*time.Hour), "Max retention time")
 
+	// Runtime
+	verbose := fs.Bool("verbose", false, "Enable verbose logging")
+	fs.BoolVar(verbose, "v", false, "Enable verbose logging (shorthand)")
+
 	if err := fs.Parse(args[1:]); err != nil {
 		return nil, err
 	}
@@ -82,6 +89,7 @@ func ParseConfig(args []string, getenv func(string) string) (*Config, error) {
 		MaxItems:      *maxItems,
 		MaxFileSize:   *maxFileSize,
 		MaxRetention:  *maxRetention,
+		Verbose:       *verbose,
 	}, nil
 }
 

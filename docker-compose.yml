@@ -1,6 +1,9 @@
 services:
   app:
-    build: .
+    build:
+      context: .
+      args:
+        VERSION: ${VERSION:-dev}
     image: ${DOCKERHUB_USERNAME:-enginerd}/shhh:${VERSION:-latest}
     container_name: shhh
     restart: unless-stopped
