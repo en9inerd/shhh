@@ -14,6 +14,8 @@ import (
 	"github.com/en9inerd/shhh/ui"
 )
 
+const multipartOverhead = 10 * 1024 // extra room for form metadata beyond the file payload
+
 func SecurityHeaders(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-Content-Type-Options", "nosniff")
@@ -33,7 +35,7 @@ func NewServer(
 ) (http.Handler, error) {
 	r := router.New(http.NewServeMux())
 
-	maxRequestSize := cfg.MaxFileSize + 10240
+	maxRequestSize := cfg.MaxFileSize + multipartOverhead
 	r.Use(
 		SecurityHeaders,
 		middleware.RealIP,

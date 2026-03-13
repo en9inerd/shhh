@@ -131,9 +131,10 @@ func getExpirationIntervals(maxRetention time.Duration) []expirationInterval {
 	return append(filtered, expirationInterval{Label: "Custom", Seconds: 0})
 }
 
-
 func renderError(w http.ResponseWriter, templates *templateCache, message string) {
-	templates.renderFragment(w, "errors", &templateData{Form: map[string]string{"error": message}})
+	if err := templates.renderFragment(w, "errors", &templateData{Form: map[string]string{"error": message}}); err != nil {
+		http.Error(w, message, http.StatusInternalServerError)
+	}
 }
 
 func parseExpiration(expUnit, customExp string) (int, error) {
@@ -153,7 +154,6 @@ func parseExpiration(expUnit, customExp string) (int, error) {
 	}
 	return exp, nil
 }
-
 
 func renderPage(w http.ResponseWriter, logger *slog.Logger, templates *templateCache, pageName string, td *templateData) {
 	if err := templates.render(w, pageName, td); err != nil {
@@ -254,7 +254,7 @@ func createTextSecretWeb(logger *slog.Logger, cfg *config.Config, memStore *mems
 
 func createFileSecretWeb(logger *slog.Logger, cfg *config.Config, memStore *memstore.MemoryStore, templates *templateCache) http.HandlerFunc {
 	getData := func(r *http.Request) ([]byte, string, error) {
-		if err := r.ParseMultipartForm(cfg.MaxFileSize + 10240); err != nil {
+		if err := r.ParseMultipartForm(cfg.MaxFileSize + multipartOverhead); err != nil {
 			return nil, "", fmt.Errorf("invalid form data")
 		}
 		file, header, err := r.FormFile("file")
@@ -312,7 +312,7 @@ func retrieveSecretWeb(logger *slog.Logger, memStore *memstore.MemoryStore, temp
 			return
 		}
 
-		form := map[string]interface{}{"is_file": filename != ""}
+		form := map[string]any{"is_file": filename != ""}
 		if filename != "" {
 			form["filename"] = filename
 			form["file_data_b64"] = base64.StdEncoding.EncodeToString(data)
@@ -322,9 +322,12 @@ func retrieveSecretWeb(logger *slog.Logger, memStore *memstore.MemoryStore, temp
 			logger.Info("retrieved secret", "id", id)
 		}
 
-		templates.renderFragment(w, "secret_result", &templateData{
+		if err := templates.renderFragment(w, "secret_result", &templateData{
 			SecretID: id,
 			Form:     form,
-		})
+		}); err != nil {
+			logger.Error("failed to render secret result", "error", err)
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		}
 	}
 }

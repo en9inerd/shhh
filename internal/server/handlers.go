@@ -12,9 +12,9 @@ import (
 	"time"
 
 	"github.com/en9inerd/go-pkgs/httpjson"
+	"github.com/en9inerd/go-pkgs/validator"
 	"github.com/en9inerd/shhh/internal/config"
 	"github.com/en9inerd/shhh/internal/memstore"
-	"github.com/en9inerd/go-pkgs/validator"
 )
 
 type saveSecretRequest struct {
@@ -130,7 +130,7 @@ func retrieveSecret(l *slog.Logger, memStore *memstore.MemoryStore) http.Handler
 
 func uploadFile(l *slog.Logger, cfg *config.Config, memStore *memstore.MemoryStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if err := r.ParseMultipartForm(cfg.MaxFileSize + 10240); err != nil {
+		if err := r.ParseMultipartForm(cfg.MaxFileSize + multipartOverhead); err != nil {
 			l.Warn("can't parse multipart form", "error", err)
 			httpjson.SendErrorJSON(w, r, l, http.StatusBadRequest, err, "can't parse multipart form")
 			return

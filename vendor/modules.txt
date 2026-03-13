@@ -1,5 +1,5 @@
-# github.com/en9inerd/go-pkgs v0.3.0
-## explicit; go 1.25.1
+# github.com/en9inerd/go-pkgs v0.3.3
+## explicit; go 1.26.1
 github.com/en9inerd/go-pkgs/httpjson
 github.com/en9inerd/go-pkgs/middleware
 github.com/en9inerd/go-pkgs/realip
