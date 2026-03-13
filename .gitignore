@@ -98,4 +98,5 @@ tags
 .env
 
 # Produced files
+build
 dist
