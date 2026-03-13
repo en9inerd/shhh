@@ -46,9 +46,6 @@ temp/
 scripts/*
 !scripts/entrypoint.sh
 
-# Vendor (will be downloaded)
-vendor/
-
 # Environment files
 .env
 .env.local
