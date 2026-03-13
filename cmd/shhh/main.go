@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"runtime/debug"
 	"sync"
 	"syscall"
 	"time"
@@ -19,7 +20,38 @@ import (
 
 var version = "dev"
 
+func versionString() string {
+	var revision, buildTime string
+	if info, ok := debug.ReadBuildInfo(); ok {
+		for _, kv := range info.Settings {
+			switch kv.Key {
+			case "vcs.revision":
+				if len(kv.Value) >= 7 {
+					revision = kv.Value[:7]
+				}
+			case "vcs.time":
+				buildTime = kv.Value
+			}
+		}
+	}
+	s := "shhh version " + version
+	if revision != "" {
+		s += " (" + revision + ")"
+	}
+	if buildTime != "" {
+		s += " built " + buildTime
+	}
+	return s
+}
+
 func run(ctx context.Context, args []string, getenv func(string) string) error {
+	for _, a := range args[1:] {
+		if a == "--version" || a == "-version" {
+			fmt.Println(versionString())
+			return nil
+		}
+	}
+
 	ctx, cancel := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
