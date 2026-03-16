@@ -18,9 +18,9 @@ SHHH encrypts secrets client-side using AES-256-GCM with Argon2id key derivation
 - Automatic expiration and cleanup
 - Text and file uploads (up to 2MB by default)
 - Web UI built with HTMX (no JavaScript framework needed)
-- Docker setup with nginx reverse proxy
-- Optional SSL/TLS support
-- Rate limiting and security headers
+- Per-IP rate limiting and security headers baked in
+- Single binary, single container — no sidecar reverse proxy required
+- CORS support (configurable origin)
 
 ## Quick Start
 
@@ -33,7 +33,7 @@ cp .env.example .env
 docker-compose up -d
 ```
 
-That's it. The app will be available at `http://localhost` (or `https://localhost` if you enable SSL -- HTTP requests are automatically redirected to HTTPS).
+The app will be available at `http://localhost:8000`.
 
 ### Local Development
 
@@ -44,81 +44,41 @@ go build -o dist/shhh ./cmd/shhh/
 ./dist/shhh
 ```
 
-The default port is 8000, but you can change it:
-
-```bash
-./dist/shhh -port 8080
-```
-
 Or use the Makefile:
 
 ```bash
-make build
-./dist/shhh
+make run
 ```
+
+The default port is 8000.
 
 ## Configuration
 
-All settings are controlled via environment variables. Check `.env.example` for the full list. Here are the main ones:
+All settings are controlled via environment variables. Check `.env.example` for the full list:
 
-- `SHHH_PORT` - Port the app listens on (default: 8000)
-- `SHHH_BASE_URL` - Public base URL for generated links (e.g. `https://shhh.example.com`). When not set, links are derived from the request's `Host` header and protocol.
-- `SHHH_MIN_PHRASE_SIZE` - Minimum passphrase length (default: 5)
-- `SHHH_MAX_PHRASE_SIZE` - Maximum passphrase length (default: 128)
-- `SHHH_MAX_ITEMS` - Max number of secrets in memory (default: 100)
-- `SHHH_MAX_FILE_SIZE` - Max file size in bytes (default: 2097152 = 2MB)
-- `SHHH_MAX_RETENTION` - Maximum time a secret can live (default: 24h)
-- `NGINX_SERVER_NAME` - Server name for nginx (default: localhost)
-- `NGINX_SSL_ENABLED` - Enable SSL/TLS (default: false)
+| Variable | Default | Description |
+|---|---|---|
+| `SHHH_PORT` | `8000` | Port the app listens on |
+| `SHHH_BASE_URL` | _(empty)_ | Public base URL for generated links (e.g. `https://shhh.example.com`). When unset, derived from the request. |
+| `SHHH_CORS_ORIGIN` | `*` | Allowed CORS origin. Restrict this in production. |
+| `SHHH_MIN_PHRASE_SIZE` | `5` | Minimum passphrase length |
+| `SHHH_MAX_PHRASE_SIZE` | `128` | Maximum passphrase length |
+| `SHHH_MAX_ITEMS` | `100` | Max number of secrets in memory |
+| `SHHH_MAX_FILE_SIZE` | `2097152` | Max file size in bytes (default 2 MB) |
+| `SHHH_MAX_RETENTION` | `24h` | Maximum time a secret can live |
+| `SHHH_VERBOSE` | `false` | Enable debug logging |
 
-You can also pass these as command-line flags if running locally.
+## Reverse Proxy (optional)
 
-## SSL Setup
+The Go binary handles everything — TLS termination is the only reason you'd add a reverse proxy. [Caddy](https://caddyserver.com/) is recommended for automatic HTTPS:
 
-### Development (Self-signed)
-
-For local testing with HTTPS:
-
-```bash
-mkdir -p ssl
-openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
-  -keyout ssl/key.pem \
-  -out ssl/cert.pem \
-  -subj "/CN=localhost"
+```
+shhh.example.com {
+    reverse_proxy localhost:8000
+}
 ```
 
-Then set `NGINX_SSL_ENABLED=true` in your `.env` and restart:
-
-```bash
-docker-compose restart
-```
-
-### Production (Let's Encrypt)
-
-1. Get your certificate on the host:
-   ```bash
-   sudo certbot certonly --standalone -d your-domain.com
-   ```
-
-2. Either mount the certs directly in `docker-compose.yml`:
-   ```yaml
-   volumes:
-     - /etc/letsencrypt/live/your-domain.com/fullchain.pem:/etc/nginx/ssl/cert.pem:ro
-     - /etc/letsencrypt/live/your-domain.com/privkey.pem:/etc/nginx/ssl/key.pem:ro
-   ```
-   
-   Or copy them to a local `ssl/` directory:
-   ```bash
-   mkdir -p ssl
-   sudo cp /etc/letsencrypt/live/your-domain.com/fullchain.pem ssl/cert.pem
-   sudo cp /etc/letsencrypt/live/your-domain.com/privkey.pem ssl/key.pem
-   ```
-
-3. Set in `.env`:
-   ```
-   NGINX_SSL_ENABLED=true
-   NGINX_SERVER_NAME=your-domain.com
-   ```
+Caddy gives you automatic Let's Encrypt certificates, HTTP/2, HTTP/3, and HTTP-to-HTTPS redirects with zero extra configuration.
 
 ## API
 
@@ -189,23 +149,15 @@ The UI uses HTMX, so it's lightweight and works without a bunch of JavaScript.
 
 ## Security
 
-### Application
-
-- **Encryption**: AES-256-GCM with Argon2id key derivation (64MB memory, 3 iterations, 4 threads)
+- **Encryption**: AES-256-GCM with Argon2id key derivation (32MB memory, 2 iterations, 1 thread)
 - **Storage**: Everything is in-memory only. Nothing is written to disk.
 - **One-time retrieval**: Secrets are deleted immediately after being accessed.
 - **Automatic cleanup**: Expired secrets are removed on a regular interval (every 30s-5min depending on max retention).
 - **Input validation**: All inputs are validated and sanitized (including filename sanitization against path traversal and header injection).
 - **XSS protection**: Templates auto-escape content.
 - **Security headers**: CSP (no unsafe-inline for scripts), X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy, Cross-Origin-Opener-Policy.
-
-### Nginx (Docker setup)
-
-- Rate limiting: 10 req/s for API, 20 req/s for web interface
-- Request size limit: 2.5MB max
-- Automatic HTTP-to-HTTPS redirect when SSL is enabled
-- Security headers: HSTS (on SSL), server tokens hidden
-- CORS: Configurable via `NGINX_CORS_ORIGIN` (defaults to `*` -- restrict this in production)
+- **Rate limiting**: Per-IP token bucket — 10 req/s (burst 20) for the API, 20 req/s (burst 30) for the web UI.
+- **CORS**: Configurable via `SHHH_CORS_ORIGIN` (defaults to `*` — restrict this in production).
 
 ## Docker Commands
 
@@ -230,21 +182,13 @@ docker-compose build
 
 **Container won't start?**
 ```bash
-docker-compose logs app
-docker-compose exec app nginx -t  # Test nginx config
+docker-compose logs shhh
 ```
 
-**SSL issues?**
+**Can't reach the app?**
 ```bash
-ls -la ssl/  # Make sure certs exist
-openssl x509 -in ssl/cert.pem -text -noout  # Check cert validity
-```
-
-**Can't reach the backend?**
-```bash
-docker-compose ps  # Check if it's running
-curl http://localhost:8000/health  # Test directly
-docker-compose logs app  # Check logs
+docker-compose ps                      # Check if it's running
+curl http://localhost:8000/health       # Test directly
 ```
 
 ## Development
@@ -276,8 +220,7 @@ The project structure is pretty standard Go:
 │   └── server/        # HTTP handlers and routes
 ├── ui/                # Web UI (templates + static files)
 ├── Dockerfile
-├── docker-compose.yml
-└── nginx.conf
+└── docker-compose.yml
 ```
 
 ## License

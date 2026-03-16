@@ -42,9 +42,8 @@ temp/
 *.tmp
 *.log
 
-# Scripts (not needed in container, except entrypoint)
-scripts/*
-!scripts/entrypoint.sh
+# Scripts (not needed in container)
+scripts/
 
 # Environment files
 .env

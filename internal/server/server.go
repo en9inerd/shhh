@@ -16,18 +16,6 @@ import (
 
 const multipartOverhead = 10 * 1024 // extra room for form metadata beyond the file payload
 
-func SecurityHeaders(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("X-Content-Type-Options", "nosniff")
-		w.Header().Set("X-Frame-Options", "DENY")
-		w.Header().Set("Referrer-Policy", "no-referrer")
-		w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'")
-		w.Header().Set("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=()")
-		w.Header().Set("Cross-Origin-Opener-Policy", "same-origin")
-		next.ServeHTTP(w, r)
-	})
-}
-
 func NewServer(
 	logger *slog.Logger,
 	cfg *config.Config,
@@ -37,12 +25,25 @@ func NewServer(
 
 	maxRequestSize := cfg.MaxFileSize + multipartOverhead
 	r.Use(
-		SecurityHeaders,
+		middleware.Headers(
+			"X-Content-Type-Options: nosniff",
+			"X-Frame-Options: DENY",
+			"Referrer-Policy: no-referrer",
+			"Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'",
+			"Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()",
+			"Cross-Origin-Opener-Policy: same-origin",
+		),
+		middleware.CORS(middleware.CORSConfig{
+			Origin:  cfg.CORSOrigin,
+			Methods: []string{"GET", "POST", "OPTIONS"},
+			Headers: []string{"Content-Type", "Authorization"},
+			MaxAge:  3600,
+		}),
 		middleware.RealIP,
 		middleware.Recoverer(logger, false),
-		middleware.GlobalThrottle(1000),
 		middleware.Timeout(25*time.Second),
 		middleware.Health,
+		middleware.GlobalThrottle(100),
 		middleware.SizeLimit(maxRequestSize),
 	)
 

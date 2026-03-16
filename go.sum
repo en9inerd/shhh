@@ -1,5 +1,5 @@
-github.com/en9inerd/go-pkgs v0.3.3 h1:sxV3dPNeKKYLYZdrHz3a10VuPtOkNY7ihK/+nNruMv8=
-github.com/en9inerd/go-pkgs v0.3.3/go.mod h1:DpoolEfqM5eTjwCpR4ndEHSNQZUNViTRN5QVBEHu18g=
+github.com/en9inerd/go-pkgs v0.4.0 h1:hc8rJl6DsXLJaCxoqnL7lp3P7UPuXL1MIzQVMAbZFH0=
+github.com/en9inerd/go-pkgs v0.4.0/go.mod h1:DpoolEfqM5eTjwCpR4ndEHSNQZUNViTRN5QVBEHu18g=
 golang.org/x/crypto v0.47.0 h1:V6e3FRj+n4dbpw86FJ8Fv7XVOql7TEwpHapKoMJ/GO8=
 golang.org/x/crypto v0.47.0/go.mod h1:ff3Y9VzzKbwSSEzWqJsJVBnWmRwRSHt/6Op5n9bQc4A=
 golang.org/x/sys v0.40.0 h1:DBZZqJ2Rkml6QMQsZywtnjnnGvHza6BTfYFWY9kjEWQ=

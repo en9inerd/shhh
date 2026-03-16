@@ -12,6 +12,7 @@ import (
 type Config struct {
 	Port          string
 	BaseURL       string
+	CORSOrigin    string
 	MinPhraseSize int
 	MaxPhraseSize int
 	MaxItems      int
@@ -31,6 +32,7 @@ func ParseConfig(getenv func(string) string) (*Config, error) {
 	return &Config{
 		Port:          envStr(getenv, "SHHH_PORT", "8000"),
 		BaseURL:       parsedBaseURL,
+		CORSOrigin:    envStr(getenv, "SHHH_CORS_ORIGIN", "*"),
 		MinPhraseSize: envInt(getenv, "SHHH_MIN_PHRASE_SIZE", 5),
 		MaxPhraseSize: envInt(getenv, "SHHH_MAX_PHRASE_SIZE", 128),
 		MaxItems:      envInt(getenv, "SHHH_MAX_ITEMS", 100),

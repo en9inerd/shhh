@@ -27,29 +27,20 @@ RUN CGO_ENABLED=0 \
       ./cmd/shhh
 
 # ---------- Runtime ----------
-FROM nginx:1.28-alpine
+FROM alpine:3.21
 
-RUN apk update && \
-    apk add --no-cache \
-        ca-certificates \
-        tzdata \
-        gettext \
-        su-exec \
-        curl
+RUN apk add --no-cache ca-certificates tzdata
 
 RUN addgroup -S app && adduser -S app -G app
 
 WORKDIR /app
 
 COPY --from=builder /shhh /app/shhh
-COPY nginx.conf /etc/nginx/nginx.conf.template
-COPY nginx-ssl.conf /etc/nginx/nginx-ssl.conf.template
 
-COPY scripts/entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+USER app
 
-EXPOSE 80 443 8000
+EXPOSE 8000
 
-HEALTHCHECK CMD curl -f http://localhost:8000/health || exit 1
+HEALTHCHECK CMD wget -q -O /dev/null http://localhost:8000/health || exit 1
 
-ENTRYPOINT ["/entrypoint.sh"]
+ENTRYPOINT ["/app/shhh"]

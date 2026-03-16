@@ -13,7 +13,7 @@ type CryptoService struct {
 	SaltSize   int
 	NonceSize  int
 	KeyLength  uint32
-	Memory     uint32 // in KB (e.g., 64*1024 = 64MB)
+	Memory     uint32 // in KB (e.g., 32*1024 = 32MB)
 	Iterations uint32
 	Threads    uint8
 }
@@ -23,9 +23,9 @@ func NewCryptoService() *CryptoService {
 		SaltSize:   16,
 		NonceSize:  12,
 		KeyLength:  32,        // AES-256
-		Memory:     64 * 1024, // 64MB
-		Iterations: 3,
-		Threads:    4,
+		Memory:     32 * 1024, // 32MB
+		Iterations: 2,
+		Threads:    1,
 	}
 }
 
