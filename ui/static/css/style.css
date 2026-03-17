@@ -7,8 +7,8 @@
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
   line-height: 1.6;
-  color: #333;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #e0ddd8;
+  background: #0e0d0b;
   min-height: 100vh;
   padding: 20px;
 }
@@ -16,28 +16,29 @@ body {
 .container {
   max-width: 800px;
   margin: 0 auto;
-  background: white;
+  background: #181714;
   border-radius: 12px;
-  box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
   padding: 40px;
   margin-top: 40px;
   margin-bottom: 40px;
+  border: 1px solid #252219;
 }
 
 h1 {
-  color: #667eea;
+  color: #e8893a;
   margin-bottom: 10px;
   font-size: 2rem;
 }
 
 h2 {
-  color: #555;
+  color: #c0b8a8;
   margin-bottom: 20px;
   font-size: 1.5rem;
 }
 
 .subtitle {
-  color: #666;
+  color: #8a8070;
   margin-bottom: 30px;
 }
 
@@ -46,7 +47,7 @@ h2 {
 }
 
 .file-size-hint {
-  color: #666;
+  color: #8a8070;
   display: block;
   margin-top: 5px;
 }
@@ -57,8 +58,13 @@ h2 {
 }
 
 .back-link a {
-  color: #667eea;
+  color: #e8893a;
   text-decoration: none;
+  transition: color 0.2s;
+}
+
+.back-link a:hover {
+  color: #f2a255;
 }
 
 .download-btn {
@@ -69,7 +75,7 @@ h2 {
 
 .tabs {
   margin-bottom: 30px;
-  border-bottom: 2px solid #e0e0e0;
+  border-bottom: 2px solid #252219;
 }
 
 .tabs input[type="radio"] {
@@ -82,7 +88,7 @@ h2 {
   border: none;
   cursor: pointer;
   font-size: 1rem;
-  color: #666;
+  color: #8a8070;
   border-bottom: 3px solid transparent;
   transition: all 0.3s;
   display: inline-block;
@@ -90,12 +96,12 @@ h2 {
 }
 
 .tab:hover {
-  color: #667eea;
+  color: #e8893a;
 }
 
 .tabs input[type="radio"]:checked + .tab {
-  color: #667eea;
-  border-bottom-color: #667eea;
+  color: #e8893a;
+  border-bottom-color: #e8893a;
   font-weight: 600;
 }
 
@@ -119,28 +125,42 @@ label {
   display: block;
   margin-bottom: 8px;
   font-weight: 500;
-  color: #555;
+  color: #a09888;
 }
 
 input[type="text"],
 input[type="password"],
 input[type="number"],
 input[type="tel"],
+input[type="file"],
 textarea,
 select {
   width: 100%;
   padding: 12px;
-  border: 2px solid #e0e0e0;
+  border: 1px solid #302a20;
   border-radius: 6px;
   font-size: 1rem;
-  transition: border-color 0.3s;
+  transition: border-color 0.3s, box-shadow 0.3s;
+  background: #12110e;
+  color: #e0ddd8;
 }
 
 input:focus,
 textarea:focus,
 select:focus {
   outline: none;
-  border-color: #667eea;
+  border-color: #e8893a;
+  box-shadow: 0 0 0 3px rgba(232, 137, 58, 0.15);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: #554e42;
+}
+
+select option {
+  background: #181714;
+  color: #e0ddd8;
 }
 
 textarea {
@@ -150,8 +170,8 @@ textarea {
 }
 
 .btn {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
+  background: linear-gradient(135deg, #e8893a 0%, #c86a20 100%);
+  color: #fff;
   padding: 12px 32px;
   border: none;
   border-radius: 6px;
@@ -164,7 +184,7 @@ textarea {
 
 .btn:hover {
   transform: translateY(-2px);
-  box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+  box-shadow: 0 5px 20px rgba(232, 137, 58, 0.3);
 }
 
 .btn:active {
@@ -178,32 +198,32 @@ textarea {
 }
 
 .alert-error {
-  background: #fee;
-  color: #c33;
-  border: 1px solid #fcc;
+  background: rgba(200, 50, 50, 0.12);
+  color: #e06050;
+  border: 1px solid rgba(200, 50, 50, 0.25);
 }
 
 .alert-success {
-  background: #efe;
-  color: #3c3;
-  border: 1px solid #cfc;
+  background: rgba(232, 137, 58, 0.08);
+  color: #e8a54a;
+  border: 1px solid rgba(232, 137, 58, 0.2);
 }
 
 .secret-display {
-  background: #f8f9fa;
-  border: 2px solid #e0e0e0;
+  background: #12110e;
+  border: 1px solid #302a20;
   border-radius: 8px;
   margin-top: 20px;
   overflow: hidden;
 }
 
 .secret-display-header {
-  background: #e9ecef;
+  background: #1e1c17;
   padding: 12px 16px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 2px solid #e0e0e0;
+  border-bottom: 1px solid #302a20;
 }
 
 .secret-content-wrapper {
@@ -220,12 +240,12 @@ textarea {
   font-size: 0.95rem;
   line-height: 1.6;
   white-space: pre-wrap;
-  color: #333;
+  color: #ccc8c0;
 }
 
 .secret-link {
-  background: #f8f9fa;
-  border: 2px solid #e0e0e0;
+  background: #12110e;
+  border: 1px solid #302a20;
   border-radius: 8px;
   padding: 16px;
   margin-top: 20px;
@@ -239,22 +259,26 @@ textarea {
 }
 
 .secret-link-url {
-  background: white;
+  background: #0e0d0b;
   padding: 12px;
   border-radius: 4px;
-  border: 1px solid #ddd;
+  border: 1px solid #302a20;
   word-break: break-all;
   font-family: monospace;
   font-size: 0.9rem;
   margin: 0;
-  color: #667eea;
+  color: #e8893a;
 }
 
 .copy-btn {
-  background: #28a745;
+  background: #b87028;
   width: auto;
   padding: 8px 16px;
   font-size: 0.9rem;
+}
+
+.copy-btn:hover {
+  box-shadow: 0 5px 15px rgba(184, 112, 40, 0.3);
 }
 
 .copy-btn-small {
@@ -264,8 +288,8 @@ textarea {
 }
 
 .file-info {
-  background: #f8f9fa;
-  border: 2px solid #e0e0e0;
+  background: #12110e;
+  border: 1px solid #302a20;
   border-radius: 8px;
   padding: 20px;
   margin-top: 20px;
@@ -282,10 +306,11 @@ textarea {
 
 .filename {
   font-family: monospace;
-  background: white;
+  background: #1e1c17;
   padding: 4px 8px;
   border-radius: 4px;
-  border: 1px solid #ddd;
+  border: 1px solid #302a20;
+  color: #ccc8c0;
 }
 
 .custom-exp {
@@ -315,8 +340,8 @@ footer {
   text-align: center;
   margin-top: 40px;
   padding-top: 20px;
-  border-top: 1px solid #e0e0e0;
-  color: #666;
+  border-top: 1px solid #252219;
+  color: #554e42;
   font-size: 0.9rem;
 }
 
@@ -325,15 +350,15 @@ footer {
     padding: 20px;
     margin-top: 20px;
   }
-  
+
   h1 {
     font-size: 1.5rem;
   }
-  
+
   .tabs {
     flex-direction: column;
   }
-  
+
   .tab {
     text-align: left;
   }
