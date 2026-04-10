@@ -56,7 +56,11 @@ func NewServer(
 	if err != nil {
 		return nil, fmt.Errorf("failed to get static subdirectory: %w", err)
 	}
-	r.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.FS(staticFS))))
+	staticHandler := http.StripPrefix("/static/", http.FileServer(http.FS(staticFS)))
+	r.Handle("/static/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "public, max-age=86400")
+		staticHandler.ServeHTTP(w, r)
+	}))
 
 	r.Mount("/api").Route(func(apiGroup *router.Group) {
 		registerRoutes(apiGroup, logger, cfg, memStore)

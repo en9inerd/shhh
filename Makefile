@@ -26,7 +26,7 @@ run:
 	@test -f .env && set -a && . ./.env && set +a; $(GO) run ./cmd/shhh
 
 run-verbose:
-	@test -f .env && set -a && . ./.env && set +a; $(GO) run ./cmd/shhh --verbose
+	@test -f .env && set -a && . ./.env && set +a; SHHH_VERBOSE=true $(GO) run ./cmd/shhh
 
 update-htmx:
 	./scripts/update-htmx.sh
