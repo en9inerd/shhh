@@ -85,7 +85,6 @@ func (ms *MemoryStore) Store(data []byte, filename string, passphrase string, tt
 
 	filename = sanitizeFilename(filename)
 
-	// Check capacity before expensive encryption operation
 	ms.mu.RLock()
 	if len(ms.items) >= ms.maxItems {
 		ms.mu.RUnlock()
@@ -94,7 +93,6 @@ func (ms *MemoryStore) Store(data []byte, filename string, passphrase string, tt
 	}
 	ms.mu.RUnlock()
 
-	// Do expensive encryption outside lock for better performance
 	now := time.Now()
 	expiresAt := now.Add(ttl)
 
@@ -115,11 +113,9 @@ func (ms *MemoryStore) Store(data []byte, filename string, passphrase string, tt
 		ExpiresAt: expiresAt,
 	}
 
-	// Lock again and check capacity before storing (prevent race condition)
 	ms.mu.Lock()
 	defer ms.mu.Unlock()
 
-	// Final check - items could have been added during encryption
 	if len(ms.items) >= ms.maxItems {
 		ms.logger.Warn("memory store is full", "max_items", ms.maxItems)
 		return "", nil, errors.New("memory store is full")

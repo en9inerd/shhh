@@ -31,6 +31,14 @@ func (r *saveSecretRequest) Validate(v *validator.Validator, cfg *config.Config)
 	v.CheckField(validator.MinChars(r.PassPhrase, cfg.MinPhraseSize), "passphrase", fmt.Sprintf("passphrase must be at least %d characters", cfg.MinPhraseSize))
 	v.CheckField(validator.MaxChars(r.PassPhrase, cfg.MaxPhraseSize), "passphrase", fmt.Sprintf("passphrase must be at most %d characters", cfg.MaxPhraseSize))
 	v.CheckField(validator.MinInt(r.Exp, 1), "exp", "expiration must be at least 1 second")
+	v.CheckField(!expirationExceedsMaxSeconds(r.Exp, cfg.MaxRetention), "exp", fmt.Sprintf("expiration must not exceed %v", cfg.MaxRetention))
+}
+
+// expirationExceedsMaxSeconds compares exp (seconds) to maxRetention using int64
+// seconds, avoiding time.Duration overflow from huge JSON values.
+func expirationExceedsMaxSeconds(exp int, maxRetention time.Duration) bool {
+	maxSec := int64(maxRetention / time.Second)
+	return int64(exp) > maxSec
 }
 
 func validatePassphrase(passphrase string, cfg *config.Config) error {
@@ -44,14 +52,6 @@ func validatePassphrase(passphrase string, cfg *config.Config) error {
 		return fmt.Errorf("passphrase must be at most %d characters", cfg.MaxPhraseSize)
 	}
 	return nil
-}
-
-func calculateTTL(exp int, maxRetention time.Duration) time.Duration {
-	ttl := time.Duration(exp) * time.Second
-	if ttl > maxRetention {
-		return maxRetention
-	}
-	return ttl
 }
 
 func saveSecret(l *slog.Logger, cfg *config.Config, memStore *memstore.MemoryStore) http.HandlerFunc {
@@ -71,7 +71,7 @@ func saveSecret(l *slog.Logger, cfg *config.Config, memStore *memstore.MemorySto
 			return
 		}
 
-		ttl := calculateTTL(req.Exp, cfg.MaxRetention)
+		ttl := time.Duration(req.Exp) * time.Second
 		id, storedItem, err := memStore.Store([]byte(req.Secret), "", req.PassPhrase, ttl)
 		if err != nil {
 			httpjson.SendErrorJSON(w, r, l, http.StatusBadRequest, err, "can't create secret")
@@ -79,7 +79,10 @@ func saveSecret(l *slog.Logger, cfg *config.Config, memStore *memstore.MemorySto
 		}
 
 		w.WriteHeader(http.StatusCreated)
-		httpjson.WriteJSON(w, httpjson.JSON{"key": id, "exp": req.Exp})
+		httpjson.WriteJSON(w, httpjson.JSON{
+			"key":        id,
+			"expires_at": storedItem.ExpiresAt.UTC().Format(time.RFC3339),
+		})
 		l.Info("created secret", "id", id, "expires_at", storedItem.ExpiresAt.Format(time.RFC3339))
 	}
 }
@@ -170,13 +173,17 @@ func uploadFile(l *slog.Logger, cfg *config.Config, memStore *memstore.MemorySto
 			httpjson.SendErrorJSON(w, r, l, http.StatusBadRequest, errors.New("expiration must be at least 1 second"), "expiration must be at least 1 second")
 			return
 		}
+		if expirationExceedsMaxSeconds(exp, cfg.MaxRetention) {
+			httpjson.SendErrorJSON(w, r, l, http.StatusBadRequest, errors.New("expiration exceeds maximum"), fmt.Sprintf("expiration must not exceed %v", cfg.MaxRetention))
+			return
+		}
 
 		filename := header.Filename
 		if filename == "" {
 			filename = r.FormValue("filename")
 		}
 
-		id, storedItem, err := memStore.Store(fileData, filename, passphrase, calculateTTL(exp, cfg.MaxRetention))
+		id, storedItem, err := memStore.Store(fileData, filename, passphrase, time.Duration(exp)*time.Second)
 		if err != nil {
 			httpjson.SendErrorJSON(w, r, l, http.StatusBadRequest, err, "can't store file")
 			return
@@ -184,9 +191,9 @@ func uploadFile(l *slog.Logger, cfg *config.Config, memStore *memstore.MemorySto
 
 		w.WriteHeader(http.StatusCreated)
 		httpjson.WriteJSON(w, httpjson.JSON{
-			"key":      id,
-			"exp":      exp,
-			"filename": storedItem.Filename,
+			"key":        id,
+			"filename":   storedItem.Filename,
+			"expires_at": storedItem.ExpiresAt.UTC().Format(time.RFC3339),
 		})
 		l.Info("uploaded file", "id", id, "filename", storedItem.Filename, "expires_at", storedItem.ExpiresAt.Format(time.RFC3339))
 	}

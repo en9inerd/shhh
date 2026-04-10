@@ -18,9 +18,7 @@ type Config struct {
 	MaxItems      int
 	MaxFileSize   int64
 	MaxRetention  time.Duration
-
-	// Runtime
-	Verbose bool
+	Verbose       bool
 }
 
 func ParseConfig(getenv func(string) string) (*Config, error) {

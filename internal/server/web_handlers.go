@@ -19,14 +19,15 @@ import (
 )
 
 type templateData struct {
-	Form        any
-	CurrentYear int
-	PageTitle   string
-	PageDesc    string
-	Config      *config.Config
-	Intervals   []expirationInterval
-	SecretID    string
-	BaseURL     string
+	Form             any
+	CurrentYear      int
+	PageTitle        string
+	PageDesc         string
+	Config           *config.Config
+	Intervals        []expirationInterval
+	SecretID         string
+	BaseURL          string
+	ExpiresAtDisplay string
 }
 
 type expirationInterval struct {
@@ -225,8 +226,12 @@ func createSecretWeb(logger *slog.Logger, cfg *config.Config, memStore *memstore
 			renderError(w, templates, err.Error())
 			return
 		}
+		if expirationExceedsMaxSeconds(exp, cfg.MaxRetention) {
+			renderError(w, templates, fmt.Sprintf("Expiration must not exceed %v", cfg.MaxRetention))
+			return
+		}
 
-		id, storedItem, err := memStore.Store(data, filename, passphrase, calculateTTL(exp, cfg.MaxRetention))
+		id, storedItem, err := memStore.Store(data, filename, passphrase, time.Duration(exp)*time.Second)
 		if err != nil {
 			logger.Warn("failed to store", "error", err)
 			renderError(w, templates, "Failed to create secret")
@@ -234,7 +239,7 @@ func createSecretWeb(logger *slog.Logger, cfg *config.Config, memStore *memstore
 		}
 
 		logger.Info("created secret", "id", id, "filename", filename, "expires_at", storedItem.ExpiresAt.Format(time.RFC3339))
-		renderSuccess(w, r, logger, templates, id, cfg)
+		renderSuccess(w, r, logger, templates, id, cfg, storedItem.ExpiresAt)
 	}
 }
 
@@ -272,19 +277,27 @@ func createFileSecretWeb(logger *slog.Logger, cfg *config.Config, memStore *mems
 	return createSecretWeb(logger, cfg, memStore, templates, getData)
 }
 
-func renderSuccess(w http.ResponseWriter, r *http.Request, logger *slog.Logger, templates *templateCache, id string, cfg *config.Config) {
-	baseURL := cfg.BaseURL
-	if baseURL == "" {
-		scheme := "http"
-		if r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https" {
-			scheme = "https"
-		}
-		baseURL = scheme + "://" + r.Host
+func baseURLFromRequest(r *http.Request, cfg *config.Config) string {
+	if cfg.BaseURL != "" {
+		return cfg.BaseURL
 	}
+	scheme := "http"
+	if r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https" {
+		scheme = "https"
+	}
+	return scheme + "://" + r.Host
+}
+
+func formatExpiresAtDisplay(t time.Time) string {
+	return t.UTC().Format("January 2, 2006 at 15:04 UTC")
+}
+
+func renderSuccess(w http.ResponseWriter, r *http.Request, logger *slog.Logger, templates *templateCache, id string, cfg *config.Config, expiresAt time.Time) {
 	if err := templates.renderFragment(w, "success", &templateData{
-		SecretID: id,
-		Config:   cfg,
-		BaseURL:  baseURL,
+		SecretID:         id,
+		Config:           cfg,
+		BaseURL:          baseURLFromRequest(r, cfg),
+		ExpiresAtDisplay: formatExpiresAtDisplay(expiresAt),
 	}); err != nil {
 		logger.Error("failed to render success template", "error", err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
