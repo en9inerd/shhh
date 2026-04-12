@@ -35,7 +35,7 @@ func NewServer(
 			"X-Content-Type-Options: nosniff",
 			"X-Frame-Options: DENY",
 			"Referrer-Policy: no-referrer",
-			"Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'",
+			"Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-hashes' 'sha256-bsV5JivYxvGywDAZ22EZJKBFip65Ng9xoJVLbBg7bdo='",
 			"Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()",
 			"Cross-Origin-Opener-Policy: same-origin",
 			"Strict-Transport-Security: max-age=31536000; includeSubDomains",
