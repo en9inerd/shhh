@@ -310,11 +310,13 @@ func channelPage(logger *slog.Logger, templates *templateCache, cs *channel.Chan
 	return func(w http.ResponseWriter, r *http.Request) {
 		id := r.PathValue("id")
 		if !channel.IsValidUUID(id) {
-			http.NotFound(w, r)
+			w.WriteHeader(http.StatusNotFound)
+			renderPage(w, logger, templates, "404", &templateData{PageTitle: "Not Found - SHHH", PageDesc: "Page not found", CurrentYear: time.Now().Year()})
 			return
 		}
 		if _, ok := cs.Get(id); !ok {
-			http.NotFound(w, r)
+			w.WriteHeader(http.StatusNotFound)
+			renderPage(w, logger, templates, "404", &templateData{PageTitle: "Not Found - SHHH", PageDesc: "Page not found", CurrentYear: time.Now().Year()})
 			return
 		}
 		renderPage(w, logger, templates, "channel", &templateData{
