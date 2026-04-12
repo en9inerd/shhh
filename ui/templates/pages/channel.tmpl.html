@@ -39,12 +39,12 @@
 
   <div class="channel-send">
     <div class="tabs">
-      <input type="radio" id="send-text-radio" name="send-type" checked />
-      <label for="send-text-radio" class="tab">Text</label>
-      <input type="radio" id="send-file-radio" name="send-type" />
-      <label for="send-file-radio" class="tab">File</label>
+      <input type="radio" id="text-tab-radio" name="send-type" checked />
+      <label for="text-tab-radio" class="tab">Text</label>
+      <input type="radio" id="file-tab-radio" name="send-type" />
+      <label for="file-tab-radio" class="tab">File</label>
 
-      <div id="send-text-tab" class="tab-content">
+      <div id="text-tab" class="tab-content">
         <div class="form-group">
           <label for="ch-text-input">Message</label>
           <textarea id="ch-text-input" placeholder="Type a message…" rows="3"></textarea>
@@ -52,7 +52,7 @@
         <button class="btn" id="ch-send-text-btn">Send</button>
       </div>
 
-      <div id="send-file-tab" class="tab-content">
+      <div id="file-tab" class="tab-content">
         <div class="form-group">
           <label for="ch-file-input">File</label>
           <input type="file" id="ch-file-input" />
