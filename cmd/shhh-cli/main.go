@@ -69,10 +69,37 @@ func main() {
 	}
 }
 
+const helpText = `shhh-cli — encrypted channel messaging
+
+Usage:
+  shhh-cli [flags] <command> <uuid>
+
+Commands:
+  push <uuid> [text]       Encrypt text and push to channel (reads stdin if omitted)
+  push <uuid> --file PATH  Encrypt file and push to channel
+  pull <uuid>              Fetch and decrypt all queued messages; print text or save files
+  watch <uuid>             Connect SSE; receive messages and send interactively
+
+Flags:
+  --server URL             Server base URL (default: $SHHH_SERVER or http://localhost:8000)
+  --passphrase PHRASE      Encryption passphrase (default: $SHHH_PASSPHRASE or interactive prompt)
+  --name DEVICE_NAME       Sender name shown to recipients (default: $SHHH_DEVICE_NAME or anon-XXXX)
+  --file PATH              File to send (push command only)
+  --version                Print version and exit
+  --help, -h               Show this help
+
+Watch interactive commands:
+  <text>                   Send a text message
+  :file /path              Send a file`
+
 func run(ctx context.Context, args []string) error {
 	for _, a := range args {
 		if a == "--version" || a == "-version" {
 			fmt.Println(versionString())
+			return nil
+		}
+		if a == "--help" || a == "-h" {
+			fmt.Println(helpText)
 			return nil
 		}
 	}
@@ -99,7 +126,7 @@ func run(ctx context.Context, args []string) error {
 	}
 
 	if len(args) < 2 {
-		return fmt.Errorf("usage: shhh-cli [flags] <push|pull|watch> <uuid>")
+		return fmt.Errorf("usage: shhh-cli [flags] <push|pull|watch> <uuid>\nRun 'shhh-cli --help' for full usage")
 	}
 	cmd, uuid := args[0], args[1]
 	textArg := ""
