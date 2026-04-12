@@ -122,7 +122,7 @@ func retrieveSecret(l *slog.Logger, memStore *memstore.MemoryStore) http.Handler
 			w.Header().Set("Content-Length", strconv.Itoa(len(data)))
 			w.WriteHeader(http.StatusOK)
 			w.Write(data)
-			l.Info("retrieved file", "id", id, "filename", filename)
+			l.Info("retrieved file", "id", id)
 			return
 		}
 
@@ -195,7 +195,7 @@ func uploadFile(l *slog.Logger, cfg *config.Config, memStore *memstore.MemorySto
 			"filename":   storedItem.Filename,
 			"expires_at": storedItem.ExpiresAt.UTC().Format(time.RFC3339),
 		})
-		l.Info("uploaded file", "id", id, "filename", storedItem.Filename, "expires_at", storedItem.ExpiresAt.Format(time.RFC3339))
+		l.Info("uploaded file", "id", id, "expires_at", storedItem.ExpiresAt.Format(time.RFC3339))
 	}
 }
 

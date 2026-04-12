@@ -42,7 +42,7 @@ func testServerWithEnv(t *testing.T, env map[string]string) (http.Handler, *mems
 	}
 	store := memstore.NewMemoryStore(testLogger(), cfg.MaxRetention, cfg.MaxItems, cfg.MaxFileSize)
 	t.Cleanup(store.Stop)
-	h, err := NewServer(testLogger(), cfg, store)
+	h, err := NewServer(testLogger(), cfg, store, nil)
 	if err != nil {
 		t.Fatalf("NewServer: %v", err)
 	}

@@ -2,19 +2,27 @@
 
 [![Docker Hub](https://img.shields.io/docker/v/enginerd/shhh?label=Docker%20Hub&logo=docker&sort=semver)](https://hub.docker.com/r/enginerd/shhh)
 
-A simple service for sharing secrets securely. Encrypt your text or files, share a link, and they'll self-destruct after being retrieved once.
+Two tools in one:
+
+- **Secrets** — share a text or file, encrypted once, retrieved once, then gone.
+- **Channels** — end-to-end encrypted broadcast channels for real-time messaging between trusted devices.
 
 Inspired by [umputun/secrets](https://github.com/umputun/secrets/).
 
-> **Threat-model note:** Plaintext exists in the app's memory (and travels over the wire in TLS when you use HTTPS in front of the service). This is standard for a hosted "paste bin"–style tool; it is **not** end-to-end encryption in the browser.
+## Threat model
+
+| | Secrets | Channels |
+|---|---|---|
+| **Encryption** | Server-side (AES-256-GCM + Argon2id). Plaintext passes through server memory. | Client-side E2E (PBKDF2-SHA256 + AES-256-GCM). Server stores and forwards opaque blobs only — never sees plaintext. |
+| **Passphrase** | Sent to the server to decrypt. | Never leaves the client. |
+| **Storage** | In-memory, deleted on retrieval. | In-memory queue, TTL-based expiry. |
 
 ## Features
 
-- AES-256-GCM encryption with Argon2id key derivation
-- One-time retrieval (secrets are deleted after being accessed)
-- Automatic expiration and cleanup
-- Text and file uploads (up to 2MB by default)
-- Web UI built with HTMX (no JavaScript framework needed)
+- One-time secret sharing — text and files up to 2 MB, self-destruct on retrieval
+- E2E encrypted channels — real-time SSE broadcast, passphrase stays in the browser/CLI
+- Web UI built with HTMX (no JavaScript framework)
+- CLI (`shhh-cli`) for channel push, pull, and interactive watch
 - Single binary, single container — no sidecar reverse proxy required
 
 ## Quick Start
@@ -26,40 +34,90 @@ cp .env.example .env
 docker-compose up -d
 ```
 
-The app will be available at `http://localhost:8000`.
-
-### Local Development
+### Local
 
 ```bash
-go build -o dist/shhh ./cmd/shhh/
+go build -o dist/shhh ./cmd/shhh
 ./dist/shhh
 ```
 
-Or use the Makefile:
+## CLI (`shhh-cli`)
+
+### Install
 
 ```bash
-make run
+brew tap en9inerd/tap
+brew install shhh-cli
 ```
+
+Or build from source:
+
+```bash
+go build -o shhh-cli ./cmd/shhh-cli
+```
+
+### Usage
+
+```
+shhh-cli [--server URL] [--passphrase PHRASE] [--name DEVICE_NAME] <command> <uuid>
+
+push <uuid> [text]       Encrypt text and push to channel (reads stdin if omitted)
+push <uuid> --file PATH  Encrypt file and push to channel
+pull <uuid>              Fetch and decrypt all queued messages
+watch <uuid>             Connect SSE; receive messages and send interactively
+```
+
+**Environment variables** (alternatives to flags):
+
+| Variable | Flag equivalent |
+|---|---|
+| `SHHH_SERVER` | `--server` |
+| `SHHH_PASSPHRASE` | `--passphrase` |
+| `SHHH_DEVICE_NAME` | `--name` |
+
+**Interactive watch mode** — once connected, type a message and press Enter to send. Use `:file /path/to/file` to send a file. Press Ctrl+C to stop.
+
+The passphrase is never sent to the server. All encryption and decryption runs locally.
 
 ## Configuration
 
-All settings are controlled via environment variables. Check `.env.example` for the full list:
+All settings via environment variables:
+
+### Server
 
 | Variable | Default | Description |
 |---|---|---|
-| `SHHH_PORT` | `8000` | Port the app listens on |
-| `SHHH_BASE_URL` | _(empty)_ | Public base URL for generated links (e.g. `https://shhh.example.com`). When unset, derived from the request. |
-| `SHHH_CORS_ORIGIN` | `*` | Allowed CORS origin. Restrict this in production. |
+| `SHHH_PORT` | `8000` | Port the server listens on |
+| `SHHH_BASE_URL` | _(empty)_ | Public base URL for generated links (e.g. `https://shhh.example.com`). Inferred from request when unset. |
+| `SHHH_CORS_ORIGIN` | _(empty)_ | Allowed CORS origin. Empty = same-origin only. |
 | `SHHH_MIN_PHRASE_SIZE` | `5` | Minimum passphrase length |
 | `SHHH_MAX_PHRASE_SIZE` | `128` | Maximum passphrase length |
-| `SHHH_MAX_ITEMS` | `100` | Max number of secrets in memory |
-| `SHHH_MAX_FILE_SIZE` | `2097152` | Max file size in bytes (default 2 MB) |
-| `SHHH_MAX_RETENTION` | `24h` | Maximum time a secret can live |
+| `SHHH_MAX_ITEMS` | `100` | Max secrets in memory |
+| `SHHH_MAX_FILE_SIZE` | `2097152` | Max file size in bytes (2 MB) |
+| `SHHH_MAX_RETENTION` | `24h` | Max secret lifetime |
 | `SHHH_VERBOSE` | `false` | Enable debug logging |
+| `SHHH_TRUSTED_PROXIES` | _(empty)_ | Comma-separated list of trusted proxy IPs/CIDRs for `X-Forwarded-For` |
+
+### Channels
+
+| Variable | Default | Description |
+|---|---|---|
+| `SHHH_CHANNELS` | _(empty)_ | Comma-separated list of channel UUIDs to enable (32-char lowercase hex each) |
+| `SHHH_CHANNEL_MSG_TTL` | `24h` | How long messages stay in the queue (falls back to `SHHH_MAX_RETENTION` if zero) |
+| `SHHH_CHANNEL_MAX_MSGS` | `20` | Max queued messages per channel |
+| `SHHH_CHANNEL_MAX_WATCHERS` | `10` | Max concurrent SSE watchers per channel |
+| `SHHH_WATCH_CONN_PER_IP` | `3` | Max concurrent watch connections per IP |
+| `SHHH_WATCH_RPS_PER_IP` | `2` | Watch endpoint rate limit (requests/sec per IP) |
+
+Channels must be pre-configured by the admin — clients cannot create them dynamically. Generate a UUID and add it to `SHHH_CHANNELS`:
+
+```bash
+python3 -c "import secrets; print(secrets.token_hex(16))"
+```
 
 ## Reverse Proxy (optional)
 
-The Go binary handles everything — TLS termination is the only reason you'd add a reverse proxy. [Caddy](https://caddyserver.com/) is recommended for automatic HTTPS:
+TLS termination is the only reason to add a reverse proxy. [Caddy](https://caddyserver.com/) is recommended:
 
 ```
 shhh.example.com {
@@ -67,119 +125,161 @@ shhh.example.com {
 }
 ```
 
-Caddy gives you automatic Let's Encrypt certificates, HTTP/2, HTTP/3, and HTTP-to-HTTPS redirects with zero extra configuration.
-
-## Production checklist
+## Production Checklist
 
 | Topic | Guidance |
-|--------|----------|
-| **TLS** | Do not expose the Go listener directly on the public internet. Terminate TLS with Caddy, nginx, or Traefik (see above). |
-| **Public URL** | Set `SHHH_BASE_URL` to your canonical HTTPS origin so shared links match what users expect. If unset, the app infers the scheme from each request (fine behind a proxy that sets `X-Forwarded-Proto`). |
-| **CORS** | Default `SHHH_CORS_ORIGIN=*` is common for tools without cookies. If only a specific browser origin should call the API, set it to that origin. |
-| **Logs** | Ship stdout/stderr to your log stack. Use `SHHH_VERBOSE=true` only when debugging. |
-| **Capacity** | Argon2 work per create is CPU- and memory-heavy; size CPU/RAM and `SHHH_MAX_ITEMS` / rate limits for your load. |
-| **High availability** | The store is **in-process memory only**. One replica is the supported model; multiple replicas without shared storage would split the map and break lookups. Restarts drop all secrets. |
+|---|---|
+| **TLS** | Terminate TLS with Caddy, nginx, or Traefik. Do not expose the Go listener directly. |
+| **Public URL** | Set `SHHH_BASE_URL` so shared links match your canonical HTTPS origin. |
+| **CORS** | Disabled by default (same-origin only). Set `SHHH_CORS_ORIGIN` only if the API is called cross-origin. |
+| **Trusted proxies** | Set `SHHH_TRUSTED_PROXIES` to your proxy IPs/CIDRs so `X-Forwarded-For` is trusted only from known sources. |
+| **Logs** | Ship stdout/stderr to your log stack. Use `SHHH_VERBOSE=true` only when debugging. Secret and file content is never logged. |
+| **Capacity** | Argon2 work per secret creation is CPU- and memory-heavy. Size CPU/RAM and tune `SHHH_MAX_ITEMS` and rate limits for your load. |
+| **High availability** | The store is in-process memory only. One replica is the supported model; multiple replicas without shared storage split the map and break lookups. Restarts drop all secrets and queued channel messages. |
 
 ## API
 
-### Create a text secret
+### Secrets
 
-```bash
+#### Create a text secret
+
+```
 POST /api/secret
 Content-Type: application/json
 
-{
-  "secret": "my secret text",
-  "passphrase": "mypass",
-  "exp": 3600
-}
+{"secret": "my secret", "passphrase": "mypass", "exp": 3600}
 ```
 
-`201 Created` response body:
+`201` response:
 
 ```json
-{
-  "key": "abc123...",
-  "expires_at": "2026-04-09T12:34:56Z"
-}
+{"key": "abc123...", "expires_at": "2026-04-09T12:34:56Z"}
 ```
 
-- Request field **`exp`** is the lifetime in **seconds** (minimum 1). It must not exceed **`SHHH_MAX_RETENTION`**; otherwise the API returns **`400`** with a validation error (same rule for file uploads and the web UI).
-- **`expires_at`** is the UTC expiry time (RFC 3339) computed from the accepted `exp`.
+`exp` is lifetime in seconds (minimum 1, maximum `SHHH_MAX_RETENTION`).
 
-### Create a file secret
+#### Create a file secret
 
-```bash
+```
 POST /api/file
 Content-Type: multipart/form-data
 
-file: <file>
-passphrase: mypass
-exp: 3600
+file=<file>, passphrase=mypass, exp=3600
 ```
 
-`201 Created` response body:
+`201` response:
 
 ```json
-{
-  "key": "abc123...",
-  "filename": "document.pdf",
-  "expires_at": "2026-04-09T12:34:56Z"
-}
+{"key": "abc123...", "filename": "document.pdf", "expires_at": "2026-04-09T12:34:56Z"}
 ```
 
-### Retrieve a secret
+#### Retrieve a secret
 
-```bash
+```
 POST /api/secret/{id}
 Content-Type: application/json
 
-{
-  "passphrase": "mypass"
-}
+{"passphrase": "mypass"}
 ```
 
-Returns the decrypted secret. The secret is deleted immediately after retrieval.
+Returns the decrypted secret. Deleted immediately after retrieval.
 
-### Get configuration parameters
+#### Get server parameters
 
-```bash
+```
 GET /api/params
 ```
 
-Returns the current limits and settings (useful for validating passphrase length and payload size before calling the create endpoints).
+Returns current limits (passphrase size, file size, retention) — useful for client-side validation.
+
+### Channels
+
+All channel data is opaque to the server. Encryption and decryption happen entirely on the client.
+
+#### Push a message
+
+```
+PUT /api/channel/{uuid}
+Content-Type: application/octet-stream
+
+<encrypted binary blob>
+```
+
+`204` on success. `429` if the queue is full.
+
+#### Pull queued messages
+
+```
+GET /api/channel/{uuid}[?limit=N]
+```
+
+`200` response:
+
+```json
+{
+  "messages": [
+    {"blob": "<base64>", "pushed_at": "2026-04-09T12:34:56Z"}
+  ]
+}
+```
+
+#### Watch (SSE)
+
+```
+GET /api/channel/{uuid}/watch
+Accept: text/event-stream
+```
+
+Server-sent events stream. Sends a `connected` event on open with a snapshot of queued messages, then a `message` event for each new push. Keepalive comments (`: keepalive`) are sent every 15 seconds.
 
 ## Security
 
-- **Encryption**: AES-256-GCM with Argon2id key derivation (32MB memory, 2 iterations, 1 thread), performed **on the server** before storing ciphertext
-- **Storage**: Everything is in-memory only. Nothing is written to disk.
-- **Input validation**: All inputs are validated and sanitized (including filename sanitization against header injection).
-- **Security headers**: CSP, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy, Cross-Origin-Opener-Policy.
-- **Rate limiting**: Per-IP token bucket — 10 req/s (burst 20) for the API, 20 req/s (burst 30) for the web UI.
+**Secrets**
+- AES-256-GCM encryption with Argon2id key derivation (32 MB memory, 2 iterations, 1 thread), performed server-side before storage.
+- Passphrase is used for decryption and never persisted.
+
+**Channels**
+- PBKDF2-SHA256 (600 000 iterations) key derivation + AES-256-GCM, performed entirely client-side.
+- The channel UUID is used as authenticated additional data (AAD) — blobs from one channel cannot be replayed into another.
+- The server stores and forwards ciphertext blobs only.
+
+**Both**
+- All secrets and channel messages stored in-memory only — nothing written to disk.
+- Input validation and filename sanitization on all endpoints.
+- Security headers: CSP, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy, Cross-Origin-Opener-Policy.
+- Rate limiting: per-IP token bucket (10 req/s, burst 20 for the API; 20 req/s, burst 30 for the web UI; separate tighter limits for the SSE watch endpoint).
 
 ## Development
 
 ```bash
-make build            # Build
-make test             # Run tests
+make build            # Build server binary
+make test             # Run tests with race detector
 make run              # Run locally (sources .env)
 make run-verbose      # Run with debug logging
 make format-html      # Format HTML templates
 make update-htmx      # Update HTMX
 ```
 
+
 Project structure:
 
 ```
 .
-├── cmd/shhh/          # Main entry point
+├── cmd/
+│   ├── shhh/          # Server entry point
+│   └── shhh-cli/      # CLI entry point
 ├── internal/
+│   ├── channel/       # Channel store, E2E crypto (PBKDF2 + AES-GCM)
 │   ├── config/        # Config parsing
-│   ├── crypto/        # Encryption (AES + Argon2id)
+│   ├── crypto/        # Server-side crypto (Argon2id + AES-GCM)
 │   ├── log/           # Logging
-│   ├── memstore/      # In-memory storage
-│   └── server/        # HTTP handlers and routes
-├── ui/                # Web UI (templates + static files)
+│   ├── memstore/      # In-memory secret storage
+│   ├── server/        # HTTP handlers and routes
+│   └── util/          # Shared utilities
+├── ui/                # Web UI (templates + static assets)
+├── scripts/           # CI helper scripts (Homebrew formula update)
+├── packaging/
+│   └── homebrew/      # Homebrew formula template
 ├── Dockerfile
 └── docker-compose.yml
 ```

@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/en9inerd/shhh/internal/channel"
 	"github.com/en9inerd/shhh/internal/config"
 	"github.com/en9inerd/shhh/internal/memstore"
 	"github.com/en9inerd/shhh/ui"
@@ -23,6 +24,7 @@ type templateData struct {
 	CurrentYear      int
 	PageTitle        string
 	PageDesc         string
+	PageScript       string // optional extra <script src="..."> included in <head>
 	Config           *config.Config
 	Intervals        []expirationInterval
 	SecretID         string
@@ -238,7 +240,7 @@ func createSecretWeb(logger *slog.Logger, cfg *config.Config, memStore *memstore
 			return
 		}
 
-		logger.Info("created secret", "id", id, "filename", filename, "expires_at", storedItem.ExpiresAt.Format(time.RFC3339))
+		logger.Info("created secret", "id", id, "expires_at", storedItem.ExpiresAt.Format(time.RFC3339))
 		renderSuccess(w, r, logger, templates, id, cfg, storedItem.ExpiresAt)
 	}
 }
@@ -304,6 +306,27 @@ func renderSuccess(w http.ResponseWriter, r *http.Request, logger *slog.Logger, 
 	}
 }
 
+func channelPage(logger *slog.Logger, templates *templateCache, cs *channel.ChannelStore) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id := r.PathValue("id")
+		if !channel.IsValidUUID(id) {
+			http.NotFound(w, r)
+			return
+		}
+		if _, ok := cs.Get(id); !ok {
+			http.NotFound(w, r)
+			return
+		}
+		renderPage(w, logger, templates, "channel", &templateData{
+			SecretID:    id,
+			PageTitle:   "Channel - SHHH",
+			PageDesc:    "End-to-end encrypted broadcast channel",
+			PageScript:  "/static/js/channel.js",
+			CurrentYear: time.Now().Year(),
+		})
+	}
+}
+
 func retrieveSecretWeb(logger *slog.Logger, memStore *memstore.MemoryStore, templates *templateCache) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if err := r.ParseForm(); err != nil {
@@ -329,7 +352,7 @@ func retrieveSecretWeb(logger *slog.Logger, memStore *memstore.MemoryStore, temp
 		if filename != "" {
 			form["filename"] = filename
 			form["file_data_b64"] = base64.StdEncoding.EncodeToString(data)
-			logger.Info("retrieved file", "id", id, "filename", filename)
+			logger.Info("retrieved file", "id", id)
 		} else {
 			form["secret"] = string(data)
 			logger.Info("retrieved secret", "id", id)

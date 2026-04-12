@@ -5,6 +5,7 @@ import (
 
 	"github.com/en9inerd/go-pkgs/middleware"
 	"github.com/en9inerd/go-pkgs/router"
+	"github.com/en9inerd/shhh/internal/channel"
 	"github.com/en9inerd/shhh/internal/config"
 	"github.com/en9inerd/shhh/internal/memstore"
 )
@@ -23,6 +24,20 @@ func registerRoutes(
 	apiGroup.HandleFunc("POST /file", uploadFile(logger, cfg, memStore))
 	apiGroup.HandleFunc("POST /secret/{id}", retrieveSecret(logger, memStore))
 	apiGroup.HandleFunc("GET /params", getParams(logger, cfg))
+}
+
+func registerChannelRoutes(
+	apiGroup *router.Group,
+	logger *slog.Logger,
+	cfg *config.Config,
+	cs *channel.ChannelStore,
+) {
+	apiGroup.Use(
+		middleware.RateLimit(middleware.RateLimitConfig{RPS: 10, Burst: 20}),
+		middleware.Logger(logger),
+	)
+	apiGroup.HandleFunc("PUT /channel/{id}", channelPush(cs))
+	apiGroup.HandleFunc("GET /channel/{id}", channelPull(logger, cs, cfg))
 }
 
 func registerWebRoutes(

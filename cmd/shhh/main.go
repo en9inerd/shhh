@@ -12,6 +12,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/en9inerd/shhh/internal/channel"
 	"github.com/en9inerd/shhh/internal/config"
 	"github.com/en9inerd/shhh/internal/log"
 	"github.com/en9inerd/shhh/internal/memstore"
@@ -73,7 +74,19 @@ func run(ctx context.Context, args []string, getenv func(string) string) error {
 	memStore := memstore.NewMemoryStore(logger, cfg.MaxRetention, cfg.MaxItems, cfg.MaxFileSize)
 	defer memStore.Stop()
 
-	handler, err := server.NewServer(logger, cfg, memStore)
+	var channelStore *channel.ChannelStore
+	if len(cfg.Channels) > 0 {
+		channelStore = channel.NewChannelStore(
+			cfg.Channels,
+			cfg.ChannelMaxMsgs,
+			cfg.ChannelMaxWatchers,
+			cfg.ChannelMsgTTL,
+		)
+		defer channelStore.Stop()
+		logger.Info("channels configured", "count", len(cfg.Channels))
+	}
+
+	handler, err := server.NewServer(logger, cfg, memStore, channelStore)
 	if err != nil {
 		return fmt.Errorf("failed to create server: %w", err)
 	}

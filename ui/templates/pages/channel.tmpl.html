@@ -1,0 +1,71 @@
+{{define "content"}}
+<h1>&#128275; SHHH Channel</h1>
+<p class="subtitle">End-to-end encrypted broadcast channel</p>
+<p class="channel-id-display">
+  Channel: <code id="channel-uuid">{{.SecretID}}</code>
+</p>
+
+<div id="setup-panel">
+  <div class="form-group">
+    <label for="ch-passphrase">Passphrase</label>
+    <input
+      type="password"
+      id="ch-passphrase"
+      placeholder="Enter channel passphrase"
+      autocomplete="off"
+    />
+    <small class="file-size-hint">
+      Held in memory only — never sent to the server.
+    </small>
+  </div>
+  <div class="form-group">
+    <label for="ch-device-name">Device name <span class="optional">(optional)</span></label>
+    <input
+      type="text"
+      id="ch-device-name"
+      placeholder="My laptop"
+      maxlength="32"
+      autocomplete="off"
+    />
+  </div>
+  <button class="btn" id="ch-connect-btn">Connect</button>
+  <p id="setup-error" class="alert alert-error" hidden></p>
+</div>
+
+<div id="channel-panel" hidden>
+  <div id="ch-status" class="channel-status"></div>
+
+  <div id="ch-messages" class="channel-messages" aria-live="polite" aria-label="Messages"></div>
+
+  <div class="channel-send">
+    <div class="tabs">
+      <input type="radio" id="send-text-radio" name="send-type" checked />
+      <label for="send-text-radio" class="tab">Text</label>
+      <input type="radio" id="send-file-radio" name="send-type" />
+      <label for="send-file-radio" class="tab">File</label>
+
+      <div id="send-text-tab" class="tab-content">
+        <div class="form-group">
+          <label for="ch-text-input">Message</label>
+          <textarea id="ch-text-input" placeholder="Type a message…" rows="3"></textarea>
+        </div>
+        <button class="btn" id="ch-send-text-btn">Send</button>
+      </div>
+
+      <div id="send-file-tab" class="tab-content">
+        <div class="form-group">
+          <label for="ch-file-input">File</label>
+          <input type="file" id="ch-file-input" />
+        </div>
+        <button class="btn" id="ch-send-file-btn">Send File</button>
+      </div>
+    </div>
+
+    <p id="send-error" class="alert alert-error" hidden></p>
+  </div>
+</div>
+
+<div class="back-link">
+  <a href="/">&#8592; Back to home</a>
+</div>
+{{end}}

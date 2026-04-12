@@ -16,8 +16,8 @@ func TestParseConfig_Defaults(t *testing.T) {
 	if cfg.BaseURL != "" {
 		t.Errorf("BaseURL: got %q want empty", cfg.BaseURL)
 	}
-	if cfg.CORSOrigin != "*" {
-		t.Errorf("CORSOrigin: got %q want %q", cfg.CORSOrigin, "*")
+	if cfg.CORSOrigin != "" {
+		t.Errorf("CORSOrigin: got %q want empty", cfg.CORSOrigin)
 	}
 	if cfg.MinPhraseSize != 5 {
 		t.Errorf("MinPhraseSize: got %d want 5", cfg.MinPhraseSize)
@@ -114,5 +114,112 @@ func TestParseConfig_InvalidIntFallsBack(t *testing.T) {
 	}
 	if cfg.MaxItems != 100 {
 		t.Errorf("MaxItems: invalid env should fall back to 100, got %d", cfg.MaxItems)
+	}
+}
+
+// --- Channel config tests ---
+
+func TestParseConfig_ChannelSettings(t *testing.T) {
+	env := map[string]string{
+		"SHHH_CHANNELS":             "a1b2c3d4e5f678901234567890abcdef,00000000000000000000000000000000",
+		"SHHH_CHANNEL_MAX_MSGS":     "30",
+		"SHHH_CHANNEL_MAX_WATCHERS": "5",
+		"SHHH_CHANNEL_MSG_TTL":      "12h",
+		"SHHH_WATCH_CONN_PER_IP":    "2",
+		"SHHH_WATCH_RPS_PER_IP":     "1.5",
+		"SHHH_TRUSTED_PROXIES":      "10.0.0.1, 10.0.0.2",
+	}
+	cfg, err := ParseConfig(func(k string) string { return env[k] })
+	if err != nil {
+		t.Fatalf("ParseConfig: %v", err)
+	}
+	if len(cfg.Channels) != 2 {
+		t.Errorf("Channels: got %d, want 2", len(cfg.Channels))
+	}
+	if cfg.ChannelMaxMsgs != 30 {
+		t.Errorf("ChannelMaxMsgs: got %d, want 30", cfg.ChannelMaxMsgs)
+	}
+	if cfg.ChannelMaxWatchers != 5 {
+		t.Errorf("ChannelMaxWatchers: got %d, want 5", cfg.ChannelMaxWatchers)
+	}
+	if cfg.ChannelMsgTTL != 12*time.Hour {
+		t.Errorf("ChannelMsgTTL: got %v, want 12h", cfg.ChannelMsgTTL)
+	}
+	if cfg.WatchConnPerIP != 2 {
+		t.Errorf("WatchConnPerIP: got %d, want 2", cfg.WatchConnPerIP)
+	}
+	if cfg.WatchRPSPerIP != 1.5 {
+		t.Errorf("WatchRPSPerIP: got %f, want 1.5", cfg.WatchRPSPerIP)
+	}
+	if len(cfg.TrustedProxies) != 2 || cfg.TrustedProxies[0] != "10.0.0.1" || cfg.TrustedProxies[1] != "10.0.0.2" {
+		t.Errorf("TrustedProxies: got %v", cfg.TrustedProxies)
+	}
+}
+
+func TestParseConfig_InvalidChannelUUIDs(t *testing.T) {
+	cases := []string{
+		"NOTVALID",                          // too short
+		"ABCDEFABCDEFABCDEFABCDEFABCDEF12",  // uppercase
+		"a1b2c3d4e5f678901234567890abcde",   // 31 chars
+		"a1b2c3d4e5f678901234567890abcdeff", // 33 chars
+		"a1b2c3d4e5f678901234567890abcdeg",  // invalid char 'g'
+	}
+	for _, bad := range cases {
+		_, err := ParseConfig(func(k string) string {
+			if k == "SHHH_CHANNELS" {
+				return bad
+			}
+			return ""
+		})
+		if err == nil {
+			t.Errorf("expected error for invalid channel UUID %q", bad)
+		}
+	}
+}
+
+func TestParseConfig_DuplicateChannel(t *testing.T) {
+	uuid := "a1b2c3d4e5f678901234567890abcdef"
+	_, err := ParseConfig(func(k string) string {
+		if k == "SHHH_CHANNELS" {
+			return uuid + "," + uuid
+		}
+		return ""
+	})
+	if err == nil {
+		t.Fatal("expected error for duplicate channel UUID")
+	}
+}
+
+func TestParseConfig_EmptyChannels(t *testing.T) {
+	cfg, err := ParseConfig(func(string) string { return "" })
+	if err != nil {
+		t.Fatalf("ParseConfig: %v", err)
+	}
+	if cfg.Channels != nil {
+		t.Errorf("Channels: got %v, want nil", cfg.Channels)
+	}
+}
+
+func TestParseStringList(t *testing.T) {
+	cases := []struct {
+		input string
+		want  []string
+	}{
+		{"", nil},
+		{"a,b,c", []string{"a", "b", "c"}},
+		{"  a , b , c  ", []string{"a", "b", "c"}},
+		{",a,,b,", []string{"a", "b"}},
+	}
+	for _, tc := range cases {
+		got := parseStringList(tc.input)
+		if len(got) != len(tc.want) {
+			t.Errorf("parseStringList(%q) = %v, want %v", tc.input, got, tc.want)
+			continue
+		}
+		for i, v := range tc.want {
+			if got[i] != v {
+				t.Errorf("parseStringList(%q)[%d] = %q, want %q", tc.input, i, got[i], v)
+			}
+		}
 	}
 }

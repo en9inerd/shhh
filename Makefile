@@ -4,13 +4,19 @@ DIST_DIR=dist
 BINARY_NAME=$(shell basename $(PWD))
 BINARY_PATH=$(BUILD_DIR)/$(BINARY_NAME)
 
+CLI_BINARY_PATH=$(BUILD_DIR)/shhh-cli
+
 all: build
 
 build:
 	$(GO) build -o $(BINARY_PATH) ./cmd/shhh/
+	$(GO) build -o $(CLI_BINARY_PATH) ./cmd/shhh-cli/
 
 build-prod:
 	bash scripts/build.sh
+
+build-cli:
+	$(GO) build -o $(CLI_BINARY_PATH) ./cmd/shhh-cli/
 
 clean:
 	rm -rf $(BUILD_DIR)
@@ -61,6 +67,6 @@ docker-clean-all: docker-clean
 	@docker builder prune -f
 	@echo "Docker cleanup complete (including build cache)"
 
-.PHONY: all build build-prod clean format test run run-verbose \
+.PHONY: all build build-cli build-prod clean format test run run-verbose \
         update-htmx format-html \
         docker-build docker-up docker-up-build docker-down docker-logs docker-clean docker-clean-all

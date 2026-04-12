@@ -6,11 +6,11 @@ import (
 	"encoding/hex"
 	"errors"
 	"log/slog"
-	"strings"
 	"sync"
 	"time"
 
 	"github.com/en9inerd/shhh/internal/crypto"
+	"github.com/en9inerd/shhh/internal/util"
 )
 
 type StoredItem struct {
@@ -56,24 +56,6 @@ func generateUUID() (string, error) {
 	return hex.EncodeToString(b), nil
 }
 
-// sanitizeFilename strips control characters (0x00-0x1F, 0x7F) to prevent
-// header injection via Content-Disposition, and limits length.
-func sanitizeFilename(filename string) string {
-	var cleaned strings.Builder
-	cleaned.Grow(len(filename))
-	for _, r := range filename {
-		if r >= 0x20 && r != 0x7F {
-			cleaned.WriteRune(r)
-		}
-	}
-	filename = cleaned.String()
-
-	if len(filename) > 255 {
-		filename = strings.ToValidUTF8(filename[:255], "")
-	}
-	return filename
-}
-
 func (ms *MemoryStore) Store(data []byte, filename string, passphrase string, ttl time.Duration) (string, *StoredItem, error) {
 	if ttl <= 0 {
 		return "", nil, errors.New("TTL must be positive")
@@ -83,7 +65,7 @@ func (ms *MemoryStore) Store(data []byte, filename string, passphrase string, tt
 		return "", nil, errors.New("data size exceeds maximum allowed")
 	}
 
-	filename = sanitizeFilename(filename)
+	filename = util.SanitizeFilename(filename)
 
 	ms.mu.RLock()
 	if len(ms.items) >= ms.maxItems {

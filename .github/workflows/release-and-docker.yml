@@ -70,3 +70,45 @@ jobs:
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/shhh:${{ steps.semrel.outputs.version }}
             ${{ secrets.DOCKERHUB_USERNAME }}/shhh:latest
+
+      - name: Set up Go for CLI build
+        if: steps.semrel.outputs.version != ''
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.26'
+
+      - name: Build CLI binaries
+        if: steps.semrel.outputs.version != ''
+        run: |
+          mkdir -p dist
+          for platform in "linux/amd64" "linux/arm64" "darwin/amd64" "darwin/arm64"; do
+            GOOS="${platform%%/*}"
+            GOARCH="${platform##*/}"
+            GOOS=$GOOS GOARCH=$GOARCH go build \
+              -ldflags "-s -w -X main.version=v${{ steps.semrel.outputs.version }}" \
+              -o "dist/shhh-cli-${GOOS}-${GOARCH}" \
+              ./cmd/shhh-cli
+          done
+          (cd dist && sha256sum * > SHA256SUMS)
+
+      - name: Upload CLI binaries to release
+        if: steps.semrel.outputs.version != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "v${{ steps.semrel.outputs.version }}" \
+            dist/shhh-cli-linux-amd64 \
+            dist/shhh-cli-linux-arm64 \
+            dist/shhh-cli-darwin-amd64 \
+            dist/shhh-cli-darwin-arm64 \
+            dist/SHA256SUMS
+
+      - name: Update Homebrew formula
+        if: steps.semrel.outputs.version != ''
+        env:
+          TAP_REPO_TOKEN: ${{ secrets.TAP_REPO_TOKEN }}
+        run: |
+          bash scripts/update-homebrew-formula.sh \
+            "${{ steps.semrel.outputs.version }}" \
+            dist \
+            "https://x-access-token:${TAP_REPO_TOKEN}@github.com/en9inerd/homebrew-tap.git"

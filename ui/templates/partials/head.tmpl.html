@@ -7,5 +7,6 @@
   <link rel="stylesheet" href="/static/css/style.css" />
   <script src="/static/js/htmx.min.js"></script>
   <script src="/static/js/app.js"></script>
+  {{if .PageScript}}<script src="{{.PageScript}}"></script>{{end}}
 </head>
 {{end}}
