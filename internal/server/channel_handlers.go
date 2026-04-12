@@ -161,7 +161,10 @@ func channelWatch(logger *slog.Logger, cs *channel.ChannelStore, cfg *config.Con
 		// that implement Unwrap() (e.g. the recoverer's recoverWriter).
 		rc := http.NewResponseController(w)
 
-		// Override write deadline so the connection can live beyond httpServer.WriteTimeout.
+		// Override both deadlines so the connection can live beyond httpServer.ReadTimeout/WriteTimeout.
+		if err := rc.SetReadDeadline(time.Time{}); err != nil {
+			logger.Warn("channelWatch: SetReadDeadline", "error", err)
+		}
 		if err := rc.SetWriteDeadline(time.Time{}); err != nil {
 			logger.Warn("channelWatch: SetWriteDeadline", "error", err)
 		}
