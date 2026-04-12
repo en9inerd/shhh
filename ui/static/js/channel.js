@@ -46,10 +46,18 @@ connectBtn.addEventListener('click', async () => {
   connectBtn.disabled = true;
   connectBtn.textContent = 'Connecting…';
 
-  setupPanel.hidden = true;
-  channelPanel.hidden = false;
-  setStatus('Connecting…');
-  openSSE();
+  try {
+    setupPanel.hidden = true;
+    channelPanel.hidden = false;
+    setStatus('Connecting…');
+    openSSE();
+  } catch (e) {
+    setupPanel.hidden = false;
+    channelPanel.hidden = true;
+    connectBtn.disabled = false;
+    connectBtn.textContent = 'Connect';
+    showSetupError('Connection failed: ' + e.message);
+  }
 });
 
 // ---------- SSE ----------
