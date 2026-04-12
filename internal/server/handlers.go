@@ -116,7 +116,8 @@ func retrieveSecret(l *slog.Logger, memStore *memstore.MemoryStore) http.Handler
 		}
 
 		if filename != "" {
-			safeFilename := strings.ReplaceAll(filename, `"`, `\"`)
+			safeFilename := strings.ReplaceAll(filename, `\`, `\\`)
+			safeFilename = strings.ReplaceAll(safeFilename, `"`, `\"`)
 			w.Header().Set("Content-Type", "application/octet-stream")
 			w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"; filename*=UTF-8''%s`, safeFilename, url.QueryEscape(filename)))
 			w.Header().Set("Content-Length", strconv.Itoa(len(data)))

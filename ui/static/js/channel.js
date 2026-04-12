@@ -28,6 +28,7 @@ const sendError      = document.getElementById('send-error');
 // ---------- State ----------
 let passphrase   = '';
 let deviceName   = '';
+let eventSource  = null;
 const seenMsgIds = new Set();
 
 // ---------- Connect ----------
@@ -62,19 +63,22 @@ connectBtn.addEventListener('click', async () => {
 
 // ---------- SSE ----------
 function openSSE() {
-  const es = new EventSource('/api/channel/' + channelUUID + '/watch');
+  if (eventSource) {
+    eventSource.close();
+  }
+  eventSource = new EventSource('/api/channel/' + channelUUID + '/watch');
 
-  es.addEventListener('connected', () => {
+  eventSource.addEventListener('connected', () => {
     setStatus('Connected');
   });
 
-  es.addEventListener('message', async (evt) => {
+  eventSource.addEventListener('message', async (evt) => {
     let parsed;
     try { parsed = JSON.parse(evt.data); } catch { return; }
     await handleIncoming(parsed.blob, parsed.pushed_at);
   });
 
-  es.onerror = () => {
+  eventSource.onerror = () => {
     setStatus('Reconnecting…');
   };
 }

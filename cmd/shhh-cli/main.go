@@ -144,10 +144,9 @@ func run(ctx context.Context, args []string) error {
 			deviceName = "anon"
 		}
 	}
-	// Truncate device name to 32 UTF-8 bytes.
 	deviceName = util.TruncateUTF8(deviceName, 32)
 
-	seen := make(map[string]bool)
+	seen := newSeenSet()
 
 	switch cmd {
 	case "push":
@@ -161,7 +160,35 @@ func run(ctx context.Context, args []string) error {
 	}
 }
 
-// cmdPush encrypts and pushes text or a file to the channel.
+// seenSet is an insertion-ordered dedup set with bounded memory.
+// When the set exceeds maxSize, the oldest half is evicted.
+type seenSet struct {
+	m     map[string]bool
+	order []string
+}
+
+const seenSetMaxSize = 200
+
+func newSeenSet() *seenSet {
+	return &seenSet{m: make(map[string]bool)}
+}
+
+func (s *seenSet) has(key string) bool {
+	return s.m[key]
+}
+
+func (s *seenSet) add(key string) {
+	s.m[key] = true
+	s.order = append(s.order, key)
+	if len(s.order) > seenSetMaxSize {
+		evict := s.order[:seenSetMaxSize/2]
+		for _, k := range evict {
+			delete(s.m, k)
+		}
+		s.order = s.order[seenSetMaxSize/2:]
+	}
+}
+
 func cmdPush(ctx context.Context, serverURL, uuid, passphrase, deviceName, filePath, textArg string) error {
 	var payload []byte
 	var msgType byte
@@ -221,8 +248,7 @@ func cmdPush(ctx context.Context, serverURL, uuid, passphrase, deviceName, fileP
 	return fmt.Errorf("push failed: HTTP %d", resp.StatusCode)
 }
 
-// cmdPull fetches and decrypts all queued messages.
-func cmdPull(ctx context.Context, serverURL, uuid, passphrase string, seen map[string]bool) error {
+func cmdPull(ctx context.Context, serverURL, uuid, passphrase string, seen *seenSet) error {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet,
 		serverURL+"/api/channel/"+uuid, nil)
 	if err != nil {
@@ -265,7 +291,7 @@ func cmdPull(ctx context.Context, serverURL, uuid, passphrase string, seen map[s
 //
 //	<text>          — push a text message
 //	:file /path     — push a file
-func cmdWatch(ctx context.Context, serverURL, uuid, passphrase, deviceName string, seen map[string]bool) error {
+func cmdWatch(ctx context.Context, serverURL, uuid, passphrase, deviceName string, seen *seenSet) error {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet,
 		serverURL+"/api/channel/"+uuid+"/watch", nil)
 	if err != nil {
@@ -369,8 +395,7 @@ func cmdWatch(ctx context.Context, serverURL, uuid, passphrase, deviceName strin
 	}
 }
 
-// handleMessage decrypts one SSE/pull message and prints/saves it.
-func handleMessage(b64blob, pushedAt, uuid, passphrase string, seen map[string]bool) {
+func handleMessage(b64blob, pushedAt, uuid, passphrase string, seen *seenSet) {
 	blobBytes, err := base64.StdEncoding.DecodeString(b64blob)
 	if err != nil {
 		return
@@ -386,19 +411,10 @@ func handleMessage(b64blob, pushedAt, uuid, passphrase string, seen map[string]b
 
 	// Deduplicate by msg_id.
 	idKey := base64.RawStdEncoding.EncodeToString(env.msgID)
-	if seen[idKey] {
+	if seen.has(idKey) {
 		return
 	}
-	seen[idKey] = true
-	if len(seen) > 200 {
-		// Trim oldest entries to cap memory (simple approach: clear half).
-		for k := range seen {
-			delete(seen, k)
-			if len(seen) <= 100 {
-				break
-			}
-		}
-	}
+	seen.add(idKey)
 
 	ts := pushedAt
 	if t, err := time.Parse(time.RFC3339, pushedAt); err == nil {

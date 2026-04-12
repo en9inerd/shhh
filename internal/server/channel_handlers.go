@@ -166,7 +166,9 @@ func channelWatch(logger *slog.Logger, cs *channel.ChannelStore, cfg *config.Con
 			logger.Warn("channelWatch: SetReadDeadline", "error", err)
 		}
 		if err := rc.SetWriteDeadline(time.Time{}); err != nil {
-			logger.Warn("channelWatch: SetWriteDeadline", "error", err)
+			logger.Error("channelWatch: SetWriteDeadline failed, aborting SSE", "error", err)
+			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			return
 		}
 
 		// Set SSE response headers before the first Write commits them.

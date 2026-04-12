@@ -35,9 +35,10 @@ func NewServer(
 			"X-Content-Type-Options: nosniff",
 			"X-Frame-Options: DENY",
 			"Referrer-Policy: no-referrer",
-			"Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'",
+			"Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'",
 			"Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()",
 			"Cross-Origin-Opener-Policy: same-origin",
+			"Strict-Transport-Security: max-age=31536000; includeSubDomains",
 		),
 		middleware.CORS(middleware.CORSConfig{
 			Origin:  cfg.CORSOrigin,
