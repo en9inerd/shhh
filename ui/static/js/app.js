@@ -20,7 +20,7 @@ const downloadFile = (fileDataB64, filename) => {
     const bytes = Uint8Array.from(atob(fileDataB64), c => c.charCodeAt(0));
     const blob = new Blob([bytes], { type: getMimeType(filename) });
     const url = URL.createObjectURL(blob);
-    const a = Object.assign(document.createElement('a'), { href: url, download: filename || 'download', style: 'display:none' });
+    const a = Object.assign(document.createElement('a'), { href: url, download: filename || 'download' });
     document.body.appendChild(a).click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
@@ -45,15 +45,6 @@ document.addEventListener('click', (e) => {
       const data = btn.getAttribute('data-file-data');
       if (data) downloadFile(data, btn.getAttribute('data-filename'));
       else alert('File data not available');
-    }
-  }
-});
-
-document.addEventListener('change', (e) => {
-  if (e.target.matches('select[name="exp_unit"]')) {
-    const container = e.target.nextElementSibling;
-    if (container?.classList.contains('custom-exp')) {
-      container.style.display = e.target.value === 'custom' ? 'block' : 'none';
     }
   }
 });
