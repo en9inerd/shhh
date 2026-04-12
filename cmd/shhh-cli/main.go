@@ -136,6 +136,14 @@ func run(ctx context.Context, args []string) error {
 	if deviceName == "" {
 		deviceName = os.Getenv("SHHH_DEVICE_NAME")
 	}
+	if deviceName == "" {
+		var b [2]byte
+		if _, err := rand.Read(b[:]); err == nil {
+			deviceName = fmt.Sprintf("anon-%x", b)
+		} else {
+			deviceName = "anon"
+		}
+	}
 	// Truncate device name to 32 UTF-8 bytes.
 	deviceName = util.TruncateUTF8(deviceName, 32)
 
@@ -397,10 +405,11 @@ func handleMessage(b64blob, pushedAt, uuid, passphrase string, seen map[string]b
 		ts = t.Local().Format("2006-01-02 15:04:05")
 	}
 
-	sender := ""
-	if env.senderName != "" {
-		sender = "[" + env.senderName + "] "
+	name := env.senderName
+	if name == "" {
+		name = "anon"
 	}
+	sender := "(" + name + ") "
 
 	switch env.msgType {
 	case msgTypeText:

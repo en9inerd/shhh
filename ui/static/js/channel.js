@@ -33,10 +33,14 @@ const seenMsgIds = new Set();
 // ---------- Connect ----------
 connectBtn.addEventListener('click', async () => {
   passphrase = passphraseEl.value;
-  deviceName = deviceNameEl.value;
   if (!passphrase) {
     showSetupError('Passphrase is required.');
     return;
+  }
+  deviceName = deviceNameEl.value.trim();
+  if (!deviceName) {
+    deviceName = 'anon-' + Array.from(crypto.getRandomValues(new Uint8Array(2)))
+      .map(b => b.toString(16).padStart(2, '0')).join('');
   }
   hideSetupError();
   connectBtn.disabled = true;
@@ -84,6 +88,7 @@ sendTextBtn.addEventListener('click', async () => {
   try {
     const payload = new TextEncoder().encode(text);
     await pushEnvelope(MSG_TYPE_TEXT, payload);
+    displayMessage({ msgType: MSG_TYPE_TEXT, senderName: deviceName, payload }, new Date().toISOString());
     textInput.value = '';
   } catch (e) {
     showSendError('Send failed: ' + e.message);
@@ -108,6 +113,7 @@ sendFileBtn.addEventListener('click', async () => {
     payload.set(fnBytes, 2);
     payload.set(fileBytes, 2 + fnLen);
     await pushEnvelope(MSG_TYPE_FILE, payload);
+    displayMessage({ msgType: MSG_TYPE_FILE, senderName: deviceName, payload }, new Date().toISOString());
     fileInput.value = '';
   } catch (e) {
     showSendError('Send failed: ' + e.message);
@@ -275,12 +281,14 @@ function displayMessage(env, pushedAt) {
   ts.textContent = formatTS(pushedAt);
   header.appendChild(ts);
 
-  if (env.senderName) {
-    const sender = document.createElement('span');
-    sender.className = 'ch-message-sender';
-    sender.textContent = env.senderName; // textContent — no XSS
-    header.appendChild(sender);
-  }
+  const sep = document.createElement('span');
+  sep.className = 'ch-message-sep';
+  sep.textContent = '·';
+  header.appendChild(sep);
+  const sender = document.createElement('span');
+  sender.className = 'ch-message-sender';
+  sender.textContent = '(' + (env.senderName || 'anon') + ')'; // textContent — no XSS
+  header.appendChild(sender);
 
   item.appendChild(header);
   const body = document.createElement('div');
@@ -327,7 +335,7 @@ function msgIdKey(id) {
 
 function formatTS(iso) {
   try {
-    return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
   } catch { return iso; }
 }
 

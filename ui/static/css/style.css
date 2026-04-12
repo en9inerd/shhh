@@ -432,6 +432,11 @@ footer {
   font-family: monospace;
 }
 
+.ch-message-sep {
+  font-size: 0.8rem;
+  color: #554e42;
+}
+
 .ch-message-sender {
   font-size: 0.85rem;
   color: #e8893a;
