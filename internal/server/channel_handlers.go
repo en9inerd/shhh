@@ -157,7 +157,7 @@ func channelWatch(logger *slog.Logger, cs *channel.ChannelStore, cfg *config.Con
 		}
 		defer ch.Unsubscribe(sub)
 
-		// ResponseController walks Unwrap chains — works through middleware wrappers
+		// ResponseController walks Unwrap chains - works through middleware wrappers
 		// that implement Unwrap() (e.g. the recoverer's recoverWriter).
 		rc := http.NewResponseController(w)
 
@@ -171,7 +171,6 @@ func channelWatch(logger *slog.Logger, cs *channel.ChannelStore, cfg *config.Con
 			return
 		}
 
-		// Set SSE response headers before the first Write commits them.
 		w.Header().Set("Content-Type", "text/event-stream; charset=utf-8")
 		w.Header().Set("Cache-Control", "no-store")
 		w.Header().Set("X-Accel-Buffering", "no")

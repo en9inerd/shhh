@@ -61,15 +61,13 @@ const (
 )
 
 func main() {
-	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer cancel()
-	if err := run(ctx, os.Args[1:]); err != nil {
+	if err := run(context.Background(), os.Args[1:]); err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		os.Exit(1)
 	}
 }
 
-const helpText = `shhh-cli — encrypted channel messaging
+const helpText = `shhh-cli - encrypted channel messaging
 
 Usage:
   shhh-cli [flags] <command> <uuid>
@@ -174,6 +172,9 @@ func run(ctx context.Context, args []string) error {
 	deviceName = util.TruncateUTF8(deviceName, 32)
 
 	seen := newSeenSet()
+
+	ctx, cancel := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
+	defer cancel()
 
 	switch cmd {
 	case "push":
@@ -316,8 +317,8 @@ func cmdPull(ctx context.Context, serverURL, uuid, passphrase string, seen *seen
 // cmdWatch subscribes to SSE and decrypts messages in real time.
 // It also reads stdin so the user can send messages without leaving watch mode:
 //
-//	<text>          — push a text message
-//	:file /path     — push a file
+//	<text>          - push a text message
+//	:file /path     - push a file
 func cmdWatch(ctx context.Context, serverURL, uuid, passphrase, deviceName string, seen *seenSet) error {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet,
 		serverURL+"/api/channel/"+uuid+"/watch", nil)
@@ -339,9 +340,9 @@ func cmdWatch(ctx context.Context, serverURL, uuid, passphrase, deviceName strin
 		return fmt.Errorf("watch failed: HTTP %d", resp.StatusCode)
 	}
 
-	fmt.Fprintln(os.Stderr, "watching — type a message and Enter to send, :file /path to send a file, Ctrl+C to stop")
+	fmt.Fprintln(os.Stderr, "watching - type a message and Enter to send, :file /path to send a file, Ctrl+C to stop")
 
-	// SSE receiver goroutine — signals done via sseErr.
+	// SSE receiver goroutine - signals done via sseErr.
 	sseErr := make(chan error, 1)
 	go func() {
 		scanner := bufio.NewScanner(resp.Body)
@@ -371,7 +372,7 @@ func cmdWatch(ctx context.Context, serverURL, uuid, passphrase, deviceName strin
 		sseErr <- scanner.Err()
 	}()
 
-	// Stdin sender goroutine — closes stdinLines on EOF, sends error on scanner failure.
+	// Stdin sender goroutine - closes stdinLines on EOF, sends error on scanner failure.
 	type stdinLine struct {
 		text string
 		err  error
@@ -396,7 +397,7 @@ func cmdWatch(ctx context.Context, serverURL, uuid, passphrase, deviceName strin
 			return err
 		case line, ok := <-stdinLines:
 			if !ok {
-				// stdin EOF — keep watching SSE until ctx or SSE closes.
+				// stdin EOF - keep watching SSE until ctx or SSE closes.
 				stdinLines = nil // nil disables this case in future selects
 				continue
 			}
@@ -436,7 +437,6 @@ func handleMessage(b64blob, pushedAt, uuid, passphrase string, seen *seenSet) {
 		return
 	}
 
-	// Deduplicate by msg_id.
 	idKey := base64.RawStdEncoding.EncodeToString(env.msgID)
 	if seen.has(idKey) {
 		return

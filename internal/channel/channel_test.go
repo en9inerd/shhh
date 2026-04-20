@@ -77,7 +77,7 @@ func TestFreshSaltPerCall(t *testing.T) {
 	b2, _ := EncryptBlob(minEnvelope(), "p", uuid)
 	// salts (bytes 1..16) must differ
 	if bytes.Equal(b1[1:17], b2[1:17]) {
-		t.Fatal("same salt used twice — nonce reuse risk")
+		t.Fatal("same salt used twice - nonce reuse risk")
 	}
 }
 
@@ -209,7 +209,7 @@ func TestChannelPullWithLimit(t *testing.T) {
 	if len(msgs) != 2 {
 		t.Fatalf("Pull(2) of 3 msgs = %d, want 2", len(msgs))
 	}
-	// Pull(0) means no limit — return all.
+	// Pull(0) means no limit - return all.
 	all := ch.Pull(0)
 	if len(all) != 3 {
 		t.Fatalf("Pull(0) = %d, want 3", len(all))

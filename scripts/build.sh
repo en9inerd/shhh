@@ -21,5 +21,9 @@ for platform in "${platforms[@]}"; do
     -o "$output" ./cmd/shhh-cli
 done
 
-(cd "$DIST_DIR" && sha256sum shhh-cli-* > SHA256SUMS)
+if command -v sha256sum >/dev/null 2>&1; then
+  (cd "$DIST_DIR" && sha256sum shhh-cli-* > SHA256SUMS)
+else
+  (cd "$DIST_DIR" && shasum -a 256 shhh-cli-* > SHA256SUMS)
+fi
 echo "SHA256SUMS written"

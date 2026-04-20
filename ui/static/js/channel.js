@@ -1,6 +1,6 @@
 'use strict';
 
-// channel.js — E2E encrypted broadcast channel client.
+// channel.js - E2E encrypted broadcast channel client.
 // All crypto runs in the browser via Web Crypto API (SubtleCrypto).
 // Passphrase is never stored persistently and never sent to the server.
 
@@ -181,7 +181,7 @@ function truncateToBytes(str, maxBytes) {
   const bytes = new TextEncoder().encode(str);
   if (bytes.length <= maxBytes) return bytes;
   let n = maxBytes;
-  // UTF-8 continuation bytes are 0x80–0xBF; scan back to a start byte.
+  // UTF-8 continuation bytes are 0x80-0xBF; scan back to a start byte.
   while (n > 0 && (bytes[n] & 0xC0) === 0x80) n--;
   return bytes.slice(0, n);
 }
@@ -236,7 +236,7 @@ async function pushEnvelope(msgType, payload) {
     headers: { 'Content-Type': 'application/octet-stream' },
     body:    blob,
   });
-  if (resp.status === 429) throw new Error('queue full — try again later');
+  if (resp.status === 429) throw new Error('queue full - try again later');
   if (!resp.ok)           throw new Error('HTTP ' + resp.status);
 }
 
@@ -252,7 +252,7 @@ async function handleIncoming(b64blob, pushedAt) {
   try {
     plain = await decryptBlob(blob);
   } catch {
-    // Decryption failure = wrong key or corrupt blob — silently discard.
+    // Decryption failure = wrong key or corrupt blob - silently discard.
     return;
   }
 
@@ -291,7 +291,7 @@ function displayMessage(env, pushedAt) {
   header.appendChild(sep);
   const sender = document.createElement('span');
   sender.className = 'ch-message-sender';
-  sender.textContent = '(' + (env.senderName || 'anon') + ')'; // textContent — no XSS
+  sender.textContent = '(' + (env.senderName || 'anon') + ')'; // textContent - no XSS
   header.appendChild(sender);
 
   item.appendChild(header);
@@ -300,7 +300,7 @@ function displayMessage(env, pushedAt) {
 
   if (env.msgType === MSG_TYPE_TEXT) {
     const pre = document.createElement('pre');
-    pre.textContent = new TextDecoder().decode(env.payload); // textContent — no XSS
+    pre.textContent = new TextDecoder().decode(env.payload); // textContent - no XSS
     body.appendChild(pre);
   } else if (env.msgType === MSG_TYPE_FILE) {
     const pl = env.payload;
@@ -316,7 +316,7 @@ function displayMessage(env, pushedAt) {
     a.className    = 'btn download-btn';
     // Use .download property (string), never innerHTML
     a.download     = filename;
-    a.textContent  = 'Download: ' + filename; // textContent — no XSS
+    a.textContent  = 'Download: ' + filename; // textContent - no XSS
     // Revoke the object URL after the download starts to free memory.
     a.addEventListener('click', () => setTimeout(() => URL.revokeObjectURL(url), 60_000));
     body.appendChild(a);

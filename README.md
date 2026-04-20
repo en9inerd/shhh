@@ -4,8 +4,8 @@
 
 Two tools in one:
 
-- **Secrets** — share a text or file, encrypted once, retrieved once, then gone.
-- **Channels** — end-to-end encrypted broadcast channels for real-time messaging between trusted devices.
+- **Secrets** - share a text or file, encrypted once, retrieved once, then gone.
+- **Channels** - end-to-end encrypted broadcast channels for real-time messaging between trusted devices.
 
 Inspired by [umputun/secrets](https://github.com/umputun/secrets/).
 
@@ -13,17 +13,17 @@ Inspired by [umputun/secrets](https://github.com/umputun/secrets/).
 
 | | Secrets | Channels |
 |---|---|---|
-| **Encryption** | Server-side (AES-256-GCM + Argon2id). Plaintext passes through server memory. | Client-side E2E (PBKDF2-SHA256 + AES-256-GCM). Server stores and forwards opaque blobs only — never sees plaintext. |
+| **Encryption** | Server-side (AES-256-GCM + Argon2id). Plaintext passes through server memory. | Client-side E2E (PBKDF2-SHA256 + AES-256-GCM). Server stores and forwards opaque blobs only - never sees plaintext. |
 | **Passphrase** | Sent to the server to decrypt. | Never leaves the client. |
 | **Storage** | In-memory, deleted on retrieval. | In-memory queue, TTL-based expiry. |
 
 ## Features
 
-- One-time secret sharing — text and files up to 2 MB, self-destruct on retrieval
-- E2E encrypted channels — real-time SSE broadcast, passphrase stays in the browser/CLI
+- One-time secret sharing - text and files up to 2 MB, self-destruct on retrieval
+- E2E encrypted channels - real-time SSE broadcast, passphrase stays in the browser/CLI
 - Web UI built with HTMX (no JavaScript framework)
 - CLI (`shhh-cli`) for channel push, pull, and interactive watch
-- Single binary, single container — no sidecar reverse proxy required
+- Single binary, single container - no sidecar reverse proxy required
 
 ## Quick Start
 
@@ -75,7 +75,7 @@ watch <uuid>             Connect SSE; receive messages and send interactively
 | `SHHH_PASSPHRASE` | `--passphrase` |
 | `SHHH_DEVICE_NAME` | `--name` |
 
-**Interactive watch mode** — once connected, type a message and press Enter to send. Use `:file /path/to/file` to send a file. Press Ctrl+C to stop.
+**Interactive watch mode** - once connected, type a message and press Enter to send. Use `:file /path/to/file` to send a file. Press Ctrl+C to stop.
 
 The passphrase is never sent to the server. All encryption and decryption runs locally.
 
@@ -109,7 +109,7 @@ All settings via environment variables:
 | `SHHH_WATCH_CONN_PER_IP` | `3` | Max concurrent watch connections per IP |
 | `SHHH_WATCH_RPS_PER_IP` | `2` | Watch endpoint rate limit (requests/sec per IP) |
 
-Channels must be pre-configured by the admin — clients cannot create them dynamically. Generate a UUID and add it to `SHHH_CHANNELS`:
+Channels must be pre-configured by the admin - clients cannot create them dynamically. Generate a UUID and add it to `SHHH_CHANNELS`:
 
 ```bash
 python3 -c "import secrets; print(secrets.token_hex(16))"
@@ -190,7 +190,7 @@ Returns the decrypted secret. Deleted immediately after retrieval.
 GET /api/params
 ```
 
-Returns current limits (passphrase size, file size, retention) — useful for client-side validation.
+Returns current limits (passphrase size, file size, retention) - useful for client-side validation.
 
 ### Channels
 
@@ -240,11 +240,11 @@ Server-sent events stream. Sends a `connected` event on open with a snapshot of 
 
 **Channels**
 - PBKDF2-SHA256 (600 000 iterations) key derivation + AES-256-GCM, performed entirely client-side.
-- The channel UUID is used as authenticated additional data (AAD) — blobs from one channel cannot be replayed into another.
+- The channel UUID is used as authenticated additional data (AAD) - blobs from one channel cannot be replayed into another.
 - The server stores and forwards ciphertext blobs only.
 
 **Both**
-- All secrets and channel messages stored in-memory only — nothing written to disk.
+- All secrets and channel messages stored in-memory only - nothing written to disk.
 - Input validation and filename sanitization on all endpoints.
 - Security headers: CSP, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy, Cross-Origin-Opener-Policy.
 - Rate limiting: per-IP token bucket (10 req/s, burst 20 for the API; 20 req/s, burst 30 for the web UI; separate tighter limits for the SSE watch endpoint).

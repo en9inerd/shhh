@@ -472,7 +472,7 @@ func TestChannelPage_unknownUUID(t *testing.T) {
 
 func TestChannelPage_invalidUUID(t *testing.T) {
 	h, _ := testChannelSetup(t, 20, 10)
-	// Uppercase hex — valid URL chars but not a valid channel UUID.
+	// Uppercase hex - valid URL chars but not a valid channel UUID.
 	req := httptest.NewRequest(http.MethodGet, "/channel/ABCDEFABCDEFABCDEFABCDEFABCDEF12", nil)
 	w := httptest.NewRecorder()
 	h.ServeHTTP(w, req)

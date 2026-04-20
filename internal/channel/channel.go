@@ -50,7 +50,7 @@ func (c *Channel) Push(blob []byte) (Message, bool) {
 		select {
 		case sub <- msg:
 		default:
-			// Subscriber buffer full — message will be replayed on drain-on-connect.
+			// Subscriber buffer full - message will be replayed on drain-on-connect.
 		}
 	}
 	return msg, true

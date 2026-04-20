@@ -6,7 +6,7 @@ import (
 	"unicode/utf8"
 )
 
-// StripControl removes ASCII control characters (0x00–0x1F and 0x7F) from s.
+// StripControl removes ASCII control characters (0x00-0x1F and 0x7F) from s.
 func StripControl(s string) string {
 	var b strings.Builder
 	for _, r := range s {
