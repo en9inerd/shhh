@@ -20,11 +20,6 @@ services:
       SHHH_MAX_FILE_SIZE: ${SHHH_MAX_FILE_SIZE:-2097152}
       SHHH_MAX_RETENTION: ${SHHH_MAX_RETENTION:-24h}
       SHHH_VERBOSE: ${SHHH_VERBOSE:-false}
-    healthcheck:
-      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:${SHHH_PORT:-8000}/health || exit 1"]
-      interval: 30s
-      timeout: 3s
-      retries: 3
 
 networks:
   default:
