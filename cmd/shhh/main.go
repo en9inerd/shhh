@@ -83,15 +83,17 @@ func run(ctx context.Context, args []string, getenv func(string) string) error {
 	defer memStore.Stop()
 
 	var channelStore *channel.ChannelStore
-	if len(cfg.Channels) > 0 {
+	if len(cfg.Channels) > 0 || cfg.ChannelMaxChannels > 0 {
 		channelStore = channel.NewChannelStore(
 			cfg.Channels,
 			cfg.ChannelMaxMsgs,
 			cfg.ChannelMaxWatchers,
+			cfg.ChannelMaxChannels,
 			cfg.ChannelMsgTTL,
+			cfg.ChannelLifetime,
 		)
 		defer channelStore.Stop()
-		logger.Info("channels configured", "count", len(cfg.Channels))
+		logger.Info("channels configured", "static", len(cfg.Channels), "max_dynamic", cfg.ChannelMaxChannels)
 	}
 
 	handler, err := server.NewServer(logger, cfg, memStore, channelStore)

@@ -97,7 +97,7 @@ func NewServer(
 			middleware.GlobalThrottle(100),
 			middleware.SizeLimit(maxRequestSize),
 		)
-		registerWebRoutes(webGroup, logger, cfg, memStore, templates)
+		registerWebRoutes(webGroup, logger, cfg, memStore, templates, channelStore)
 	})
 
 	if channelStore != nil {

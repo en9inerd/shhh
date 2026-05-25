@@ -107,7 +107,7 @@ func TestIsValidUUID(t *testing.T) {
 // --- Channel/ChannelStore tests ---
 
 func TestChannelPushPull(t *testing.T) {
-	ch := newChannel(5, 10, time.Hour)
+	ch := newChannel(5, 10, time.Hour, false)
 	blob := []byte("ciphertext")
 	msg, ok := ch.Push(blob)
 	if !ok {
@@ -127,7 +127,7 @@ func TestChannelPushPull(t *testing.T) {
 }
 
 func TestChannelQueueFull(t *testing.T) {
-	ch := newChannel(2, 10, time.Hour)
+	ch := newChannel(2, 10, time.Hour, false)
 	ch.Push([]byte("a"))
 	ch.Push([]byte("b"))
 	_, ok := ch.Push([]byte("c"))
@@ -137,7 +137,7 @@ func TestChannelQueueFull(t *testing.T) {
 }
 
 func TestChannelSubscribeBroadcast(t *testing.T) {
-	ch := newChannel(10, 5, time.Hour)
+	ch := newChannel(10, 5, time.Hour, false)
 	sub, snapshot, ok := ch.Subscribe(10)
 	if !ok {
 		t.Fatal("Subscribe failed")
@@ -160,7 +160,7 @@ func TestChannelSubscribeBroadcast(t *testing.T) {
 }
 
 func TestChannelSubscribeSnapshot(t *testing.T) {
-	ch := newChannel(10, 5, time.Hour)
+	ch := newChannel(10, 5, time.Hour, false)
 	ch.Push([]byte("queued"))
 
 	_, snapshot, ok := ch.Subscribe(10)
@@ -173,7 +173,7 @@ func TestChannelSubscribeSnapshot(t *testing.T) {
 }
 
 func TestChannelWatcherCap(t *testing.T) {
-	ch := newChannel(10, 2, time.Hour)
+	ch := newChannel(10, 2, time.Hour, false)
 	sub1, _, ok := ch.Subscribe(10)
 	if !ok {
 		t.Fatal("first Subscribe failed")
@@ -191,7 +191,7 @@ func TestChannelWatcherCap(t *testing.T) {
 }
 
 func TestChannelTTLExpiry(t *testing.T) {
-	ch := newChannel(10, 5, 10*time.Millisecond)
+	ch := newChannel(10, 5, 10*time.Millisecond, false)
 	ch.Push([]byte("expires"))
 	time.Sleep(20 * time.Millisecond)
 	msgs := ch.Pull(0)
@@ -201,7 +201,7 @@ func TestChannelTTLExpiry(t *testing.T) {
 }
 
 func TestChannelPullWithLimit(t *testing.T) {
-	ch := newChannel(10, 5, time.Hour)
+	ch := newChannel(10, 5, time.Hour, false)
 	ch.Push([]byte("a"))
 	ch.Push([]byte("b"))
 	ch.Push([]byte("c"))
@@ -217,7 +217,7 @@ func TestChannelPullWithLimit(t *testing.T) {
 }
 
 func TestChannelPruneExpired(t *testing.T) {
-	ch := newChannel(10, 5, 10*time.Millisecond)
+	ch := newChannel(10, 5, 10*time.Millisecond, false)
 	ch.Push([]byte("expires"))
 	time.Sleep(20 * time.Millisecond)
 	ch.pruneExpired() // explicit call to the otherwise-cleanup-only path
@@ -230,7 +230,7 @@ func TestChannelPruneExpired(t *testing.T) {
 }
 
 func TestChannelUnsubscribeThenPush(t *testing.T) {
-	ch := newChannel(10, 5, time.Hour)
+	ch := newChannel(10, 5, time.Hour, false)
 	sub, _, _ := ch.Subscribe(10)
 	ch.Unsubscribe(sub)
 	// Push after Unsubscribe must not deadlock or panic.
@@ -241,7 +241,7 @@ func TestChannelUnsubscribeThenPush(t *testing.T) {
 }
 
 func TestChannelStoreGetUnknown(t *testing.T) {
-	cs := NewChannelStore([]string{"a1b2c3d4e5f678901234567890abcdef"}, 20, 10, time.Hour)
+	cs := NewChannelStore([]string{"a1b2c3d4e5f678901234567890abcdef"}, 20, 10, 0, time.Hour, time.Hour)
 	defer cs.Stop()
 
 	_, ok := cs.Get("00000000000000000000000000000000")
@@ -252,5 +252,72 @@ func TestChannelStoreGetUnknown(t *testing.T) {
 	_, ok = cs.Get("a1b2c3d4e5f678901234567890abcdef")
 	if !ok {
 		t.Fatal("expected found for known UUID")
+	}
+}
+
+func TestChannelStoreCreate(t *testing.T) {
+	cs := NewChannelStore(nil, 20, 10, 2, time.Hour, time.Hour)
+	defer cs.Stop()
+
+	id1 := "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+	id2 := "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+	id3 := "cccccccccccccccccccccccccccccccc"
+
+	if !cs.Create(id1) {
+		t.Fatal("Create id1 failed")
+	}
+	if !cs.Create(id2) {
+		t.Fatal("Create id2 failed")
+	}
+	if cs.Create(id3) {
+		t.Fatal("Create id3 should fail: cap=2")
+	}
+	if cs.Create(id1) {
+		t.Fatal("Create id1 duplicate should fail")
+	}
+	if _, ok := cs.Get(id1); !ok {
+		t.Fatal("id1 should exist")
+	}
+}
+
+func TestChannelStoreCreate_disabled(t *testing.T) {
+	cs := NewChannelStore(nil, 20, 10, 0, time.Hour, time.Hour)
+	defer cs.Stop()
+
+	if cs.Create("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa") {
+		t.Fatal("Create should fail when maxChannels=0")
+	}
+}
+
+func TestChannelStoreDynamicExpiry(t *testing.T) {
+	cs := NewChannelStore(nil, 20, 10, 5, 10*time.Millisecond, 10*time.Millisecond)
+	defer cs.Stop()
+
+	id := "dddddddddddddddddddddddddddddddd"
+	if !cs.Create(id) {
+		t.Fatal("Create failed")
+	}
+	if _, ok := cs.Get(id); !ok {
+		t.Fatal("channel should exist immediately after create")
+	}
+
+	time.Sleep(50 * time.Millisecond)
+	cs.pruneExpiredChannels()
+
+	if _, ok := cs.Get(id); ok {
+		t.Fatal("channel should be deleted after lifetime expires")
+	}
+}
+
+func TestChannelStoreStaticNotExpired(t *testing.T) {
+	id := "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+	cs := NewChannelStore([]string{id}, 20, 10, 5, 10*time.Millisecond, 10*time.Millisecond)
+	defer cs.Stop()
+
+	time.Sleep(50 * time.Millisecond)
+	cs.pruneExpiredChannels()
+
+	if _, ok := cs.Get(id); !ok {
+		t.Fatal("static channel must not be deleted by lifetime cleanup")
 	}
 }

@@ -14,6 +14,7 @@ import (
 
 	"github.com/en9inerd/shhh/internal/channel"
 	"github.com/en9inerd/shhh/internal/config"
+	"github.com/en9inerd/shhh/internal/util"
 )
 
 // clientIP extracts the IP from an addr that may be "host:port" or bare IP.
@@ -49,6 +50,27 @@ func watchConnPerIP(limit int) func(http.Handler) http.Handler {
 			}()
 			next.ServeHTTP(w, r)
 		})
+	}
+}
+
+func channelCreate(logger *slog.Logger, cs *channel.ChannelStore) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id, err := util.GenerateID()
+		if err != nil {
+			logger.Error("channel create: generate id", "error", err)
+			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			return
+		}
+		if !cs.Create(id) {
+			http.Error(w, "channel limit reached", http.StatusTooManyRequests)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Cache-Control", "no-store")
+		w.WriteHeader(http.StatusCreated)
+		if err := json.NewEncoder(w).Encode(map[string]string{"id": id}); err != nil {
+			logger.Error("channel create: encode response", "error", err)
+		}
 	}
 }
 

@@ -16,6 +16,7 @@ import (
 	"github.com/en9inerd/shhh/internal/channel"
 	"github.com/en9inerd/shhh/internal/config"
 	"github.com/en9inerd/shhh/internal/memstore"
+	"github.com/en9inerd/shhh/internal/util"
 	"github.com/en9inerd/shhh/ui"
 )
 
@@ -303,6 +304,30 @@ func renderSuccess(w http.ResponseWriter, r *http.Request, logger *slog.Logger, 
 	}); err != nil {
 		logger.Error("failed to render success template", "error", err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+	}
+}
+
+func channelNew(logger *slog.Logger, templates *templateCache, cs *channel.ChannelStore) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			id, err := util.GenerateID()
+			if err != nil {
+				logger.Error("channel create: generate id", "error", err)
+				http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+				return
+			}
+			if !cs.Create(id) {
+				http.Error(w, "channel limit reached", http.StatusTooManyRequests)
+				return
+			}
+			http.Redirect(w, r, "/channel/"+id, http.StatusSeeOther)
+			return
+		}
+		renderPage(w, logger, templates, "channel_new", &templateData{
+			PageTitle:   "New Channel - SHHH",
+			PageDesc:    "Create an encrypted broadcast channel",
+			CurrentYear: time.Now().Year(),
+		})
 	}
 }
 

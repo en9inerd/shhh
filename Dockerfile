@@ -1,6 +1,4 @@
 # ---------- Build ----------
-# Pin builder to the build machine's native platform so Go cross-compiles
-# natively instead of running under QEMU emulation.
 FROM --platform=$BUILDPLATFORM golang:1.26.1-alpine AS builder
 
 RUN apk update && apk add --no-cache git ca-certificates

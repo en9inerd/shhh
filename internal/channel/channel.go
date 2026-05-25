@@ -19,20 +19,24 @@ type Subscriber chan Message
 
 // Channel is a single broadcast queue. Methods are safe for concurrent use.
 type Channel struct {
-	mu          sync.RWMutex
-	queue       []Message
-	subs        []Subscriber
-	maxMsgs     int
-	maxWatchers int
-	msgTTL      time.Duration
+	mu           sync.RWMutex
+	queue        []Message
+	subs         []Subscriber
+	maxMsgs      int
+	maxWatchers  int
+	msgTTL       time.Duration
+	lastActivity time.Time
+	dynamic      bool // true = created at runtime; eligible for lifetime expiry
 }
 
-func newChannel(maxMsgs, maxWatchers int, msgTTL time.Duration) *Channel {
+func newChannel(maxMsgs, maxWatchers int, msgTTL time.Duration, dynamic bool) *Channel {
 	return &Channel{
-		queue:       make([]Message, 0, maxMsgs),
-		maxMsgs:     maxMsgs,
-		maxWatchers: maxWatchers,
-		msgTTL:      msgTTL,
+		queue:        make([]Message, 0, maxMsgs),
+		maxMsgs:      maxMsgs,
+		maxWatchers:  maxWatchers,
+		msgTTL:       msgTTL,
+		lastActivity: time.Now(),
+		dynamic:      dynamic,
 	}
 }
 
@@ -46,6 +50,7 @@ func (c *Channel) Push(blob []byte) (Message, bool) {
 	}
 	msg := Message{Blob: blob, PushedAt: time.Now()}
 	c.queue = append(c.queue, msg)
+	c.lastActivity = msg.PushedAt
 	for _, sub := range c.subs {
 		select {
 		case sub <- msg:
@@ -54,6 +59,12 @@ func (c *Channel) Push(blob []byte) (Message, bool) {
 		}
 	}
 	return msg, true
+}
+
+func (c *Channel) lastActivityTime() time.Time {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.lastActivity
 }
 
 // Subscribe atomically checks the watcher cap, registers the subscriber, and
@@ -123,24 +134,37 @@ func (c *Channel) pruneExpired() {
 	c.mu.Unlock()
 }
 
-// ChannelStore holds all pre-configured channels and runs a background cleaner.
+// ChannelStore holds all channels and runs a background cleaner.
 type ChannelStore struct {
-	channels map[string]*Channel
-	mu       sync.RWMutex
-	stopCh   chan struct{}
-	msgTTL   time.Duration
+	mu              sync.RWMutex
+	channels        map[string]*Channel
+	stopCh          chan struct{}
+	msgTTL          time.Duration
+	channelLifetime time.Duration
+	maxChannels     int
+	dynamicCount    int
+	maxMsgs         int
+	maxWatchers     int
 }
 
-// NewChannelStore creates a ChannelStore for the given UUIDs and starts the cleaner.
-func NewChannelStore(ids []string, maxMsgs, maxWatchers int, msgTTL time.Duration) *ChannelStore {
+// NewChannelStore starts the background cleaner goroutine.
+// maxChannels > 0 enables runtime channel creation via Create. channelLifetime=0 falls back to msgTTL.
+func NewChannelStore(ids []string, maxMsgs, maxWatchers, maxChannels int, msgTTL, channelLifetime time.Duration) *ChannelStore {
 	chs := make(map[string]*Channel, len(ids))
 	for _, id := range ids {
-		chs[id] = newChannel(maxMsgs, maxWatchers, msgTTL)
+		chs[id] = newChannel(maxMsgs, maxWatchers, msgTTL, false)
+	}
+	if channelLifetime <= 0 {
+		channelLifetime = msgTTL
 	}
 	cs := &ChannelStore{
-		channels: chs,
-		stopCh:   make(chan struct{}),
-		msgTTL:   msgTTL,
+		channels:        chs,
+		stopCh:          make(chan struct{}),
+		msgTTL:          msgTTL,
+		channelLifetime: channelLifetime,
+		maxChannels:     maxChannels,
+		maxMsgs:         maxMsgs,
+		maxWatchers:     maxWatchers,
 	}
 	go cs.cleanupLoop()
 	return cs
@@ -152,6 +176,21 @@ func (cs *ChannelStore) Get(id string) (*Channel, bool) {
 	defer cs.mu.RUnlock()
 	ch, ok := cs.channels[id]
 	return ch, ok
+}
+
+// Create returns false if disabled (maxChannels==0), cap is reached, or id already exists.
+func (cs *ChannelStore) Create(id string) bool {
+	cs.mu.Lock()
+	defer cs.mu.Unlock()
+	if cs.maxChannels == 0 || cs.dynamicCount >= cs.maxChannels {
+		return false
+	}
+	if _, exists := cs.channels[id]; exists {
+		return false
+	}
+	cs.channels[id] = newChannel(cs.maxMsgs, cs.maxWatchers, cs.msgTTL, true)
+	cs.dynamicCount++
+	return true
 }
 
 // Stop terminates the background cleaner goroutine.
@@ -166,13 +205,31 @@ func (cs *ChannelStore) cleanupLoop() {
 	for {
 		select {
 		case <-t.C:
-			cs.mu.RLock()
-			for _, ch := range cs.channels {
-				ch.pruneExpired()
-			}
-			cs.mu.RUnlock()
+			cs.pruneMessages()
+			cs.pruneExpiredChannels()
 		case <-cs.stopCh:
 			return
+		}
+	}
+}
+
+func (cs *ChannelStore) pruneMessages() {
+	cs.mu.RLock()
+	defer cs.mu.RUnlock()
+	for _, ch := range cs.channels {
+		ch.pruneExpired()
+	}
+}
+
+// Lock order: cs.mu.Lock → ch.mu.RLock (consistent everywhere; no deadlock risk).
+func (cs *ChannelStore) pruneExpiredChannels() {
+	now := time.Now()
+	cs.mu.Lock()
+	defer cs.mu.Unlock()
+	for id, ch := range cs.channels {
+		if ch.dynamic && now.Sub(ch.lastActivityTime()) > cs.channelLifetime {
+			delete(cs.channels, id)
+			cs.dynamicCount--
 		}
 	}
 }

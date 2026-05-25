@@ -2,9 +2,22 @@
 package util
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"strings"
 	"unicode/utf8"
 )
+
+// GenerateID returns a random 32-character lowercase hex string (UUID v4 format).
+func GenerateID() (string, error) {
+	b := make([]byte, 16)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	b[6] = (b[6] & 0x0f) | 0x40
+	b[8] = (b[8] & 0x3f) | 0x80
+	return hex.EncodeToString(b), nil
+}
 
 // StripControl removes ASCII control characters (0x00-0x1F and 0x7F) from s.
 func StripControl(s string) string {

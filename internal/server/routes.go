@@ -36,6 +36,9 @@ func registerChannelRoutes(
 		middleware.RateLimit(middleware.RateLimitConfig{RPS: 10, Burst: 20}),
 		middleware.Logger(logger),
 	)
+	if cfg.ChannelMaxChannels > 0 {
+		apiGroup.HandleFunc("POST /channel", channelCreate(logger, cs))
+	}
 	apiGroup.HandleFunc("PUT /channel/{id}", channelPush(cs))
 	apiGroup.HandleFunc("GET /channel/{id}", channelPull(logger, cs, cfg))
 }
@@ -46,6 +49,7 @@ func registerWebRoutes(
 	cfg *config.Config,
 	memStore *memstore.MemoryStore,
 	templates *templateCache,
+	cs *channel.ChannelStore,
 ) {
 	webGroup.Use(
 		middleware.RateLimit(middleware.RateLimitConfig{RPS: 20, Burst: 30}),
@@ -57,4 +61,9 @@ func registerWebRoutes(
 	webGroup.HandleFunc("POST /web/secret", createTextSecretWeb(logger, cfg, memStore, templates))
 	webGroup.HandleFunc("POST /web/file", createFileSecretWeb(logger, cfg, memStore, templates))
 	webGroup.HandleFunc("POST /web/retrieve", retrieveSecretWeb(logger, memStore, templates))
+	if cs != nil && cfg.ChannelMaxChannels > 0 {
+		h := channelNew(logger, templates, cs)
+		webGroup.HandleFunc("GET /channel/new", h)
+		webGroup.HandleFunc("POST /channel/new", h)
+	}
 }

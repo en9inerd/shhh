@@ -22,13 +22,15 @@ type Config struct {
 	Verbose       bool
 
 	// Channel feature
-	Channels           []string
-	ChannelMsgTTL      time.Duration
-	ChannelMaxMsgs     int
-	ChannelMaxWatchers int
-	WatchConnPerIP     int
-	WatchRPSPerIP      float64
-	TrustedProxies     []string
+	Channels            []string
+	ChannelMsgTTL       time.Duration
+	ChannelLifetime     time.Duration
+	ChannelMaxMsgs      int
+	ChannelMaxWatchers  int
+	ChannelMaxChannels  int
+	WatchConnPerIP      int
+	WatchRPSPerIP       float64
+	TrustedProxies      []string
 }
 
 func ParseConfig(getenv func(string) string) (*Config, error) {
@@ -61,8 +63,10 @@ func ParseConfig(getenv func(string) string) (*Config, error) {
 
 		Channels:           channels,
 		ChannelMsgTTL:      msgTTL,
+		ChannelLifetime:    envDuration(getenv, "SHHH_CHANNEL_LIFETIME", msgTTL),
 		ChannelMaxMsgs:     envInt(getenv, "SHHH_CHANNEL_MAX_MSGS", 20),
 		ChannelMaxWatchers: envInt(getenv, "SHHH_CHANNEL_MAX_WATCHERS", 10),
+		ChannelMaxChannels: envInt(getenv, "SHHH_CHANNEL_MAX_CHANNELS", 0),
 		WatchConnPerIP:     envInt(getenv, "SHHH_WATCH_CONN_PER_IP", 3),
 		WatchRPSPerIP:      envFloat64(getenv, "SHHH_WATCH_RPS_PER_IP", 2.0),
 		TrustedProxies:     parseStringList(envStr(getenv, "SHHH_TRUSTED_PROXIES", "")),

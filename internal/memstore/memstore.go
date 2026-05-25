@@ -2,8 +2,6 @@ package memstore
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"errors"
 	"log/slog"
 	"sync"
@@ -46,16 +44,6 @@ func NewMemoryStore(logger *slog.Logger, retention time.Duration, maxItems int, 
 	return store
 }
 
-func generateUUID() (string, error) {
-	b := make([]byte, 16)
-	if _, err := rand.Read(b); err != nil {
-		return "", err
-	}
-	b[6] = (b[6] & 0x0f) | 0x40
-	b[8] = (b[8] & 0x3f) | 0x80
-	return hex.EncodeToString(b), nil
-}
-
 func (ms *MemoryStore) Store(data []byte, filename string, passphrase string, ttl time.Duration) (string, *StoredItem, error) {
 	if ttl <= 0 {
 		return "", nil, errors.New("TTL must be positive")
@@ -83,7 +71,7 @@ func (ms *MemoryStore) Store(data []byte, filename string, passphrase string, tt
 		return "", nil, err
 	}
 
-	id, err := generateUUID()
+	id, err := util.GenerateID()
 	if err != nil {
 		return "", nil, err
 	}

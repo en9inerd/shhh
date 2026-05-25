@@ -31,7 +31,7 @@ func testChannelSetup(t *testing.T, maxMsgs, maxWatchers int) (http.Handler, *ch
 	cfg.ChannelMaxWatchers = maxWatchers
 	cfg.ChannelMsgTTL = time.Hour
 
-	cs := channel.NewChannelStore(cfg.Channels, cfg.ChannelMaxMsgs, cfg.ChannelMaxWatchers, cfg.ChannelMsgTTL)
+	cs := channel.NewChannelStore(cfg.Channels, cfg.ChannelMaxMsgs, cfg.ChannelMaxWatchers, cfg.ChannelMaxChannels, cfg.ChannelMsgTTL, cfg.ChannelLifetime)
 	t.Cleanup(cs.Stop)
 
 	store := memstore.NewMemoryStore(testLogger(), cfg.MaxRetention, cfg.MaxItems, cfg.MaxFileSize)
@@ -478,6 +478,156 @@ func TestChannelPage_invalidUUID(t *testing.T) {
 	h.ServeHTTP(w, req)
 	if w.Code != http.StatusNotFound {
 		t.Fatalf("got %d, want 404", w.Code)
+	}
+}
+
+// --- Channel create tests ---
+
+func TestChannelCreate_ok(t *testing.T) {
+	cfg, _ := config.ParseConfig(func(k string) string { return "" })
+	cfg.ChannelMaxChannels = 10
+	cfg.ChannelMsgTTL = time.Hour
+	cfg.ChannelLifetime = time.Hour
+	cs := channel.NewChannelStore(nil, 20, 10, cfg.ChannelMaxChannels, cfg.ChannelMsgTTL, cfg.ChannelLifetime)
+	t.Cleanup(cs.Stop)
+	store := memstore.NewMemoryStore(testLogger(), cfg.MaxRetention, cfg.MaxItems, cfg.MaxFileSize)
+	t.Cleanup(store.Stop)
+	h, err := NewServer(testLogger(), cfg, store, cs)
+	if err != nil {
+		t.Fatalf("NewServer: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/channel", nil)
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+
+	if w.Code != http.StatusCreated {
+		t.Fatalf("got %d, want 201; body: %s", w.Code, w.Body.String())
+	}
+	var resp map[string]string
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	id, ok := resp["id"]
+	if !ok || !channel.IsValidUUID(id) {
+		t.Fatalf("invalid id in response: %q", id)
+	}
+	if _, ok := cs.Get(id); !ok {
+		t.Fatal("created channel not found in store")
+	}
+}
+
+func TestChannelCreate_limitReached(t *testing.T) {
+	cfg, _ := config.ParseConfig(func(k string) string { return "" })
+	cfg.ChannelMaxChannels = 1
+	cfg.ChannelMsgTTL = time.Hour
+	cfg.ChannelLifetime = time.Hour
+	cs := channel.NewChannelStore(nil, 20, 10, cfg.ChannelMaxChannels, cfg.ChannelMsgTTL, cfg.ChannelLifetime)
+	t.Cleanup(cs.Stop)
+	store := memstore.NewMemoryStore(testLogger(), cfg.MaxRetention, cfg.MaxItems, cfg.MaxFileSize)
+	t.Cleanup(store.Stop)
+	h, err := NewServer(testLogger(), cfg, store, cs)
+	if err != nil {
+		t.Fatalf("NewServer: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/channel", nil)
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+	if w.Code != http.StatusCreated {
+		t.Fatalf("first create: got %d, want 201", w.Code)
+	}
+
+	req2 := httptest.NewRequest(http.MethodPost, "/api/channel", nil)
+	w2 := httptest.NewRecorder()
+	h.ServeHTTP(w2, req2)
+	if w2.Code != http.StatusTooManyRequests {
+		t.Fatalf("second create: got %d, want 429", w2.Code)
+	}
+}
+
+func TestChannelCreate_disabled(t *testing.T) {
+	cfg, _ := config.ParseConfig(func(k string) string { return "" })
+	cfg.Channels = []string{testUUID}
+	cfg.ChannelMaxChannels = 0
+	cfg.ChannelMsgTTL = time.Hour
+	cfg.ChannelLifetime = time.Hour
+	cs := channel.NewChannelStore(cfg.Channels, 20, 10, 0, cfg.ChannelMsgTTL, cfg.ChannelLifetime)
+	t.Cleanup(cs.Stop)
+	store := memstore.NewMemoryStore(testLogger(), cfg.MaxRetention, cfg.MaxItems, cfg.MaxFileSize)
+	t.Cleanup(store.Stop)
+	h, err := NewServer(testLogger(), cfg, store, cs)
+	if err != nil {
+		t.Fatalf("NewServer: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/channel", nil)
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+	if w.Code != http.StatusMethodNotAllowed && w.Code != http.StatusNotFound {
+		t.Fatalf("got %d, want 404 or 405 (route not registered)", w.Code)
+	}
+}
+
+// --- Channel new page tests ---
+
+func testChannelNewSetup(t *testing.T, maxChannels int) http.Handler {
+	t.Helper()
+	cfg, _ := config.ParseConfig(func(k string) string { return "" })
+	cfg.ChannelMaxChannels = maxChannels
+	cfg.ChannelMsgTTL = time.Hour
+	cfg.ChannelLifetime = time.Hour
+	cs := channel.NewChannelStore(nil, 20, 10, maxChannels, cfg.ChannelMsgTTL, cfg.ChannelLifetime)
+	t.Cleanup(cs.Stop)
+	store := memstore.NewMemoryStore(testLogger(), cfg.MaxRetention, cfg.MaxItems, cfg.MaxFileSize)
+	t.Cleanup(store.Stop)
+	h, err := NewServer(testLogger(), cfg, store, cs)
+	if err != nil {
+		t.Fatalf("NewServer: %v", err)
+	}
+	return h
+}
+
+func TestChannelNew_get(t *testing.T) {
+	h := testChannelNewSetup(t, 10)
+	req := httptest.NewRequest(http.MethodGet, "/channel/new", nil)
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("got %d, want 200", w.Code)
+	}
+	if !strings.Contains(w.Body.String(), "New Channel") {
+		t.Fatal("page missing expected content")
+	}
+}
+
+func TestChannelNew_post_ok(t *testing.T) {
+	h := testChannelNewSetup(t, 10)
+	req := httptest.NewRequest(http.MethodPost, "/channel/new", nil)
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+	if w.Code != http.StatusSeeOther {
+		t.Fatalf("got %d, want 303", w.Code)
+	}
+	loc := w.Header().Get("Location")
+	if !strings.HasPrefix(loc, "/channel/") || len(loc) != len("/channel/")+32 {
+		t.Fatalf("unexpected redirect location: %q", loc)
+	}
+}
+
+func TestChannelNew_post_limitReached(t *testing.T) {
+	h := testChannelNewSetup(t, 1)
+	req1 := httptest.NewRequest(http.MethodPost, "/channel/new", nil)
+	w1 := httptest.NewRecorder()
+	h.ServeHTTP(w1, req1)
+	if w1.Code != http.StatusSeeOther {
+		t.Fatalf("first post: got %d, want 303", w1.Code)
+	}
+	req2 := httptest.NewRequest(http.MethodPost, "/channel/new", nil)
+	w2 := httptest.NewRecorder()
+	h.ServeHTTP(w2, req2)
+	if w2.Code != http.StatusTooManyRequests {
+		t.Fatalf("second post: got %d, want 429", w2.Code)
 	}
 }
 
