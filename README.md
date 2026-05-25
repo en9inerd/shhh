@@ -102,18 +102,22 @@ All settings via environment variables:
 
 | Variable | Default | Description |
 |---|---|---|
-| `SHHH_CHANNELS` | _(empty)_ | Comma-separated list of channel UUIDs to enable (32-char lowercase hex each) |
+| `SHHH_CHANNELS` | _(empty)_ | Comma-separated list of pre-configured channel UUIDs (32-char lowercase hex each) |
 | `SHHH_CHANNEL_MSG_TTL` | `24h` | How long messages stay in the queue (falls back to `SHHH_MAX_RETENTION` if zero) |
+| `SHHH_CHANNEL_MAX_CHANNELS` | `0` | Max dynamic channels creatable via UI/API. `0` = disabled. |
+| `SHHH_CHANNEL_LIFETIME` | `0` | Lifetime of a dynamic channel since last message. `0` = use `SHHH_CHANNEL_MSG_TTL`. |
 | `SHHH_CHANNEL_MAX_MSGS` | `20` | Max queued messages per channel |
 | `SHHH_CHANNEL_MAX_WATCHERS` | `10` | Max concurrent SSE watchers per channel |
 | `SHHH_WATCH_CONN_PER_IP` | `3` | Max concurrent watch connections per IP |
 | `SHHH_WATCH_RPS_PER_IP` | `2` | Watch endpoint rate limit (requests/sec per IP) |
 
-Channels must be pre-configured by the admin - clients cannot create them dynamically. Generate a UUID and add it to `SHHH_CHANNELS`:
+Two ways to provision channels:
 
-```bash
-python3 -c "import secrets; print(secrets.token_hex(16))"
-```
+- **Static** — pre-configure UUIDs via `SHHH_CHANNELS`. Generate one with:
+  ```bash
+  python3 -c "import secrets; print(secrets.token_hex(16))"
+  ```
+- **Dynamic** — set `SHHH_CHANNEL_MAX_CHANNELS > 0` to allow clients to create channels via the web UI (`/channel/new`) or API (`POST /api/channel`).
 
 ## Reverse Proxy (optional)
 
@@ -195,6 +199,20 @@ Returns current limits (passphrase size, file size, retention) - useful for clie
 ### Channels
 
 All channel data is opaque to the server. Encryption and decryption happen entirely on the client.
+
+#### Create a channel
+
+```
+POST /api/channel
+```
+
+`201` response:
+
+```json
+{"id": "a3f1..."}
+```
+
+`429` if `SHHH_CHANNEL_MAX_CHANNELS` limit is reached. Only available when `SHHH_CHANNEL_MAX_CHANNELS > 0`.
 
 #### Push a message
 
